@@ -1,23 +1,23 @@
 [package]
-name = "pgmpy-rust"
+name = "pgmpy_rust"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [lib]
 name = "pgmpy_rust"
 crate-type = ["cdylib"]
 
 [dependencies]
+# Core graph library from rustworkx (pure Rust, on crates.io)
 rustworkx-core = "0.14"
-pyo3 = { version = "0.20", features = ["extension-module"] }
-petgraph = "0.6"
-indexmap = "2.0"
-ahash = "0.8"
 
-[dependencies.rustworkx]
-version = "0.14"
-default-features = false
-features = ["maturin"]
+# You already imported petgraph and ahash for utilities:
+petgraph = "0.6"
+ahash    = "0.8"
+indexmap = "2.0"
+
+# PyO3 for the Python binding
+pyo3 = { version = "0.20", features = ["extension-module"] }
 
 [build-dependencies]
 pyo3-build-config = "0.20"

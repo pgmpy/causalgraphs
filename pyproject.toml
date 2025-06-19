@@ -1,0 +1,31 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pgmpy-rust"
+version = "0.1.0"
+description = "High-performance graph operations for PGMPy using Rust"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "rustworkx>=0.14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "numpy",
+    "networkx",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
