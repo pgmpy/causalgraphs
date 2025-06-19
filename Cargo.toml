@@ -1,0 +1,23 @@
+[package]
+name = "pgmpy-rust"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "pgmpy_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustworkx-core = "0.14"
+pyo3 = { version = "0.20", features = ["extension-module"] }
+petgraph = "0.6"
+indexmap = "2.0"
+ahash = "0.8"
+
+[dependencies.rustworkx]
+version = "0.14"
+default-features = false
+features = ["maturin"]
+
+[build-dependencies]
+pyo3-build-config = "0.20"
