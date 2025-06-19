@@ -66,6 +66,26 @@ impl RustDAG  {
         Ok(())
     }
 
+    /// Get all nodes in the graph
+    pub fn nodes(&self) -> Vec<String> {
+        self.node_map.keys().cloned().collect()
+    }
+
+    /// Get all edges in the graph
+    pub fn edges(&self) -> Vec<(String, String)> {
+        self.graph
+            .edge_indices()
+            .map(|edge_idx| {
+                let (source, target) = self.graph.edge_endpoints(edge_idx).unwrap();
+                (
+                    self.reverse_node_map[&source].clone(),
+                    self.reverse_node_map[&target].clone(),
+                )
+            })
+            .collect()
+    }
+
+ 
     //** Stop here for now **/
 
 }
