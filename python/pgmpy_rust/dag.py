@@ -59,16 +59,16 @@ class RustDAG:
         nodes_str = [str(n) for n in nodes]
         return self._dag.get_ancestors_of(nodes_str)
     
-    def minimal_dseparator(self, start: Hashable, end: Hashable, 
-                          include_latents: bool = False) -> Optional[Set[str]]:
-        """Find minimal d-separating set (optimized Rust implementation)."""
-        return self._dag.minimal_dseparator(str(start), str(end), include_latents)
+    # def minimal_dseparator(self, start: Hashable, end: Hashable, 
+    #                       include_latents: bool = False) -> Optional[Set[str]]:
+    #     """Find minimal d-separating set (optimized Rust implementation)."""
+    #     return self._dag.minimal_dseparator(str(start), str(end), include_latents)
     
-    def is_dconnected(self, start: Hashable, end: Hashable, 
-                     observed: Optional[List[Hashable]] = None) -> bool:
-        """Check if two nodes are d-connected."""
-        observed_str = [str(n) for n in observed] if observed else None
-        return self._dag.is_dconnected(str(start), str(end), observed_str)
+    # def is_dconnected(self, start: Hashable, end: Hashable, 
+    #                  observed: Optional[List[Hashable]] = None) -> bool:
+    #     """Check if two nodes are d-connected."""
+    #     observed_str = [str(n) for n in observed] if observed else None
+    #     return self._dag.is_dconnected(str(start), str(end), observed_str)
     
     def nodes(self) -> List[str]:
         """Get all nodes."""
