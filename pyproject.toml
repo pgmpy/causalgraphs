@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "pgmpy-rust"
+name = "causalgraphs"
 version = "0.1.0"
 description = "High-performance graph operations for PGMPy using Rust"
 authors = [

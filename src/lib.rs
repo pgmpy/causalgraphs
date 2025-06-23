@@ -6,7 +6,7 @@ mod utils;
 use dag::RustDAG;
 
 #[pymodule]
-fn pgmpy_rust(_py: Python, m: &PyModule) -> PyResult<()> {
+fn causalgraphs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<RustDAG>()?;
     Ok(())
 }

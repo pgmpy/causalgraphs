@@ -34,6 +34,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
+name = "causalgraphs"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "indexmap 2.9.0",
+ "petgraph",
+ "pyo3",
+ "pyo3-build-config",
+ "rustworkx-core",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -241,18 +253,6 @@ checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
  "indexmap 2.9.0",
-]
-
-[[package]]
-name = "pgmpy_rust"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "indexmap 2.9.0",
- "petgraph",
- "pyo3",
- "pyo3-build-config",
- "rustworkx-core",
 ]
 
 [[package]]

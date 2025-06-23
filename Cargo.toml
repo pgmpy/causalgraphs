@@ -1,10 +1,10 @@
 [package]
-name = "pgmpy_rust"
+name = "causalgraphs"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "pgmpy_rust"
+name = "causalgraphs"
 crate-type = ["cdylib"]
 
 [dependencies]

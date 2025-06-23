@@ -2,7 +2,7 @@
 Python wrapper for Rust DAG implementation with pgmpy compatibility
 """
 from typing import List, Set, Optional, Union, Hashable
-from .pgmpy_rust import RustDAG as _RustDAG
+from .causalgraphs import RustDAG as _RustDAG
 
 
 class RustDAG:
