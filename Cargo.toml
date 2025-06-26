@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 # Core graph library from rustworkx (pure Rust, on crates.io)
 rustworkx-core = "0.14"
+wasm-bindgen = "0.2"
 
 # You already imported petgraph and ahash for utilities:
 petgraph = "0.6"
