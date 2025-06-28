@@ -9,7 +9,7 @@ name = "causalgraphs"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["python"]
+default = []
 python = ["dep:pyo3", "dep:pyo3-build-config"]
 wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys", "dep:serde", "dep:serde-wasm-bindgen"]
 
