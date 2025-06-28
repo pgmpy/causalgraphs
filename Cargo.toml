@@ -5,20 +5,40 @@ edition = "2021"
 
 [lib]
 name = "causalgraphs"
-crate-type = ["cdylib"]
+# Dynamic crate-type based on features
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3", "dep:pyo3-build-config"]
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys", "dep:serde", "dep:serde-wasm-bindgen"]
 
 [dependencies]
-# Core graph library from rustworkx (pure Rust, on crates.io)
+# Core dependencies (always included)
 rustworkx-core = "0.14"
-wasm-bindgen = "0.2"
-
-# You already imported petgraph and ahash for utilities:
 petgraph = "0.6"
-ahash    = "0.8"
 indexmap = "2.0"
 
-# PyO3 for the Python binding
-pyo3 = { version = "0.20", features = ["extension-module"] }
+# Python-specific dependencies (only for python feature)
+pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+
+# WASM-specific dependencies (only for wasm feature)
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+
+# UUID and getrandom dependencies (for both features)
+uuid = { version = "1.13", features = ["v4", "rng-getrandom"] }
+getrandom_v03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+getrandom_v02 = { package = "getrandom", version = "0.2", features = ["js"] }
 
 [build-dependencies]
-pyo3-build-config = "0.20"
+pyo3-build-config = { version = "0.20", optional = true }
+
+# WASM-specific profile
+[profile.release]
+# Optimize for size when building for WASM
+opt-level = "s"
+lto = true
