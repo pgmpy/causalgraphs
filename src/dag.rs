@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone)]
 #[cfg_attr(feature = "python", pyclass)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]
 pub struct RustDAG {
     graph: DiGraph<String, f64>,
     node_map: HashMap<String, NodeIndex>,
@@ -243,8 +242,8 @@ impl RustDAG {
     }
 
     #[wasm_bindgen(js_name = addNodesFrom)]
-    pub fn js_add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<bool>>) -> Result<(), JsValue> {
-        self.add_nodes_from_internal(nodes, latent)
+    pub fn js_add_nodes_from(&mut self, nodes: Vec<String>) -> Result<(), JsValue> {
+        self.add_nodes_from_internal(nodes, None)
             .map_err(|e| JsValue::from_str(&e))
     }
 
