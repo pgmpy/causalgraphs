@@ -1,24 +1,7 @@
-[package]
-name = "causalgraphs"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "rust_core",
+    "python_bindings",
+]
 
-[lib]
-name = "causalgraphs"
-crate-type = ["cdylib"]
-
-[dependencies]
-# Core graph library from rustworkx (pure Rust, on crates.io)
-rustworkx-core = "0.14"
-wasm-bindgen = "0.2"
-
-# You already imported petgraph and ahash for utilities:
-petgraph = "0.6"
-ahash    = "0.8"
-indexmap = "2.0"
-
-# PyO3 for the Python binding
-pyo3 = { version = "0.20", features = ["extension-module"] }
-
-[build-dependencies]
-pyo3-build-config = "0.20"
+resolver = "2"

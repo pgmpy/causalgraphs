@@ -1,0 +1,13 @@
+[package]
+name = "causalgraphs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "causalgraphs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rust_core = { path = "../rust_core" }
+pyo3 = { version = "0.20", features = ["extension-module"] }

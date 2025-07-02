@@ -1,20 +1,20 @@
 use ahash::AHashSet;
 use petgraph::Direction;
-use pyo3::prelude::*;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-#[pyclass]
-pub struct RustDAG  {
-    graph: DiGraph<String, f64>,
-    node_map: HashMap<String, NodeIndex>,
-    reverse_node_map: HashMap<NodeIndex, String>,
-    latents: HashSet<String>,
+// Remove #[pyclass] here. This is a pure Rust struct.
+#[derive(Debug, Clone)] // Add Debug for easier printing in Rust tests
+pub struct RustDAG {
+    pub graph: DiGraph<String, f64>, // Make fields public if bindings need direct access,
+    pub node_map: HashMap<String, NodeIndex>, // or provide internal methods.
+    pub reverse_node_map: HashMap<NodeIndex, String>,
+    pub latents: HashSet<String>,
 }
 
-#[pymethods]
-impl RustDAG  {
-    #[new]
+// All methods here should be public, but not necessarily #[pymethods]
+// They are the *internal* implementations that the bindings will call.
+impl RustDAG {
     pub fn new() -> Self {
         RustDAG {
             graph: DiGraph::new(),
@@ -25,13 +25,13 @@ impl RustDAG  {
     }
 
     /// Add a single node to the graph
-    pub fn add_node(&mut self, node: String, latent: Option<bool>) -> PyResult<()> {
+    pub fn add_node(&mut self, node: String, latent: bool) -> Result<(), String> {
         if !self.node_map.contains_key(&node) {
             let idx: NodeIndex = self.graph.add_node(node.clone());
             self.node_map.insert(node.clone(), idx);
             self.reverse_node_map.insert(idx, node.clone());
-            
-            if latent.unwrap_or(false) {
+
+            if latent {
                 self.latents.insert(node);
             }
         }
@@ -39,39 +39,37 @@ impl RustDAG  {
     }
 
     /// Add multiple nodes to the graph
-    pub fn add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<bool>>) -> PyResult<()> {
+    pub fn add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<bool>>) -> Result<(), String> {
         let latent_flags: Vec<bool> = latent.unwrap_or_else(|| vec![false; nodes.len()]);
-        
+
         if nodes.len() != latent_flags.len() {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Length of nodes and latent flags must match"
-            ));
+            return Err("Length of nodes and latent flags must match".to_string());
         }
 
         for (node, is_latent) in nodes.iter().zip(latent_flags.iter()) {
-            self.add_node(node.clone(), Some(*is_latent))?;
+            // Note: Call self.add_node directly now, not self.add_node_internal
+            self.add_node(node.clone(), *is_latent)?;
         }
         Ok(())
     }
 
-
     /// Add an edge between two nodes
-    pub fn add_edge(&mut self, u: String, v: String, weight: Option<f64>) -> PyResult<()> {
-        // Add nodes if they don't exist
-        self.add_node(u.clone(), None)?;
-        self.add_node(v.clone(), None)?;
+    pub fn add_edge(&mut self, u: String, v: String, weight: Option<f64>) -> Result<(), String> {
+        // Add nodes if they don't exist. Pass false for latent by default.
+        self.add_node(u.clone(), false)?;
+        self.add_node(v.clone(), false)?;
 
         let u_idx: NodeIndex = self.node_map[&u];
         let v_idx: NodeIndex = self.node_map[&v];
-        
+
         self.graph.add_edge(u_idx, v_idx, weight.unwrap_or(1.0));
         Ok(())
     }
 
     /// Get parents of a node
-    pub fn get_parents(&self, node: String) -> PyResult<Vec<String>> {
-        let node_idx = self.node_map.get(&node)
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(format!("Node {} not found", node)))?;
+    pub fn get_parents(&self, node: &str) -> Result<Vec<String>, String> {
+        let node_idx = self.node_map.get(node)
+            .ok_or_else(|| format!("Node {} not found", node))?;
 
         let parents: Vec<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Incoming)
@@ -82,9 +80,9 @@ impl RustDAG  {
     }
 
     /// Get children of a node
-    pub fn get_children(&self, node: String) -> PyResult<Vec<String>> {
-        let node_idx = self.node_map.get(&node)
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(format!("Node {} not found", node)))?;
+    pub fn get_children(&self, node: &str) -> Result<Vec<String>, String> {
+        let node_idx = self.node_map.get(node)
+            .ok_or_else(|| format!("Node {} not found", node))?;
 
         let children: Vec<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Outgoing)
@@ -95,7 +93,7 @@ impl RustDAG  {
     }
 
     /// Get all ancestors of given nodes (optimized Rust implementation)
-    pub fn get_ancestors_of(&self, nodes: Vec<String>) -> PyResult<HashSet<String>> {
+    pub fn get_ancestors_of(&self, nodes: Vec<String>) -> Result<HashSet<String>, String> {
         let mut ancestors: AHashSet<String> = AHashSet::new();
         let mut queue: VecDeque<NodeIndex> = VecDeque::new();
 
@@ -105,9 +103,7 @@ impl RustDAG  {
                 queue.push_back(node_idx);
                 ancestors.insert(node.clone());
             } else {
-                return Err(pyo3::exceptions::PyValueError::new_err(
-                    format!("Node {} not in graph", node)
-                ));
+                return Err(format!("Node {} not in graph", node));
             }
         }
 
@@ -120,7 +116,7 @@ impl RustDAG  {
                 }
             }
         }
-
+        
         Ok(ancestors.into_iter().collect())
     }
 
@@ -148,10 +144,8 @@ impl RustDAG  {
         self.graph.node_count()
     }
 
-    /// Get number of edges  
+    /// Get number of edges
     pub fn edge_count(&self) -> usize {
         self.graph.edge_count()
     }
-
-
 }
