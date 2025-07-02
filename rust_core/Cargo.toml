@@ -1,0 +1,14 @@
+[package]
+name = "rust_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "rust_core"
+path = "src/lib.rs"
+
+[dependencies]
+petgraph = "0.6"
+ahash    = "0.8"
+indexmap = "2.0"
+rustworkx-core = "0.14"
