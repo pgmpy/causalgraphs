@@ -2,47 +2,17 @@ use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize}; // For serializing/deserializing data to JS
 use std::collections::HashSet; // For returning HashSet from Rust to Vec in JS
 
-// Import RustDAG from your core library
-use rust_core::RustDAG;
-
-// Add a public struct to wrap RustDAG for WASM.
-// It can directly be `RustDAG` if you make it `#[wasm_bindgen]`
-// but sometimes a wrapper is cleaner for WASM for more control over JS API.
-// Let's directly expose RustDAG as #[wasm_bindgen] for simplicity, similar to Python.
-// However, RustDAG must be Clone, and its internal fields must be serializable if exposed.
-
-// You will likely want to make your RustDAG cloneable and serialize/deserialize for WASM,
-// allowing it to be passed between Rust and JS contexts.
-// Make sure `RustDAG` in `rust_core/src/dag.rs` has `#[derive(Clone, Serialize, Deserialize)]` if needed.
-// IMPORTANT: `DiGraph` from `petgraph` does NOT implement `Serialize` or `Deserialize` directly.
-// You'll need to either:
-// 1. Manually serialize/deserialize `RustDAG` (complex).
-// 2. Expose methods that operate on the graph but don't pass the graph *object* itself.
-// 3. Use a different graph library if it provides Serde support.
-//
-// For simplicity in this example, let's assume `RustDAG` will have methods,
-// but the struct itself won't be directly serialized/deserialized to JS object,
-// unless you add custom Serde implementations.
-// If you only pass primitives and call methods, `#[wasm_bindgen]` can apply directly.
-
-// Applying `#[wasm_bindgen]` to `RustDAG` directly.
-// Note: If `RustDAG` in `rust_core` needs to be `Serialize`/`Deserialize`
-// for use with `serde_wasm_bindgen`, you'll need to add `#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]`
-// to the `RustDAG` struct *in `rust_core/src/dag.rs`*. This requires `serde` to be
-// an optional dependency in `rust_core`'s `Cargo.toml` with a `wasm` feature.
-// This is getting more complex, so let's stick to methods for now.
-
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = RustDAG)]
 #[derive(Clone)] // Make sure RustDAG in rust_core also derives Clone
-pub struct WasmDAG { // Use a wrapper struct named WasmDAG for clarity
-    inner: RustDAG,
+pub struct RustDAG { // Use a wrapper struct named WasmDAG for clarity
+    inner: rust_core::RustDAG,
 }
 
 #[wasm_bindgen]
-impl WasmDAG {
+impl RustDAG {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> WasmDAG {
-        WasmDAG { inner: RustDAG::new() }
+    pub fn new() -> RustDAG {
+        RustDAG { inner: rust_core::RustDAG::new() }
     }
 
     #[wasm_bindgen(js_name = addNode, catch)]
