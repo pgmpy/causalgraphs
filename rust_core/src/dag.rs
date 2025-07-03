@@ -1,3 +1,4 @@
+use ahash::AHashSet;
 use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -120,12 +121,12 @@ impl RustDAG {
     }
 
     /// Get all nodes in the graph
-    fn nodes_internal(&self) -> Vec<String> {
+    pub fn nodes(&self) -> Vec<String> {
         self.node_map.keys().cloned().collect()
     }
 
     /// Get all edges in the graph
-    fn edges_internal(&self) -> Vec<(String, String)> {
+    pub fn edges(&self) -> Vec<(String, String)> {
         self.graph
             .edge_indices()
             .map(|edge_idx| {
@@ -139,7 +140,7 @@ impl RustDAG {
     }
 
     /// Get number of nodes
-    fn node_count_internal(&self) -> usize {
+    pub fn node_count(&self) -> usize {
         self.graph.node_count()
     }
 

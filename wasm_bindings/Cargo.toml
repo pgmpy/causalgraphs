@@ -1,0 +1,43 @@
+[package]
+name = "wasm_bindings"
+version = "0.1.0"
+authors = ["Mohammed Razak <mohammedrazak2001@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+rust_core = { path = "../rust_core" }
+
+# WASM binding dependencies
+wasm-bindgen = "0.2.84"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] } # 'console' is useful for logging
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+# UUID and getrandom dependencies
+# Ongoing Issue See: https://github.com/uuid-rs/uuid/issues/792 & https://docs.rs/getrandom/latest/getrandom/#webassembly-support for more details.
+# New version of getrandom doesnt utilize js backend for random generation, which is why we need to specify the features explicitly and 
+# add a .cargo/config.toml file to set the flag to use js backend explicitly during compile time
+uuid = { version = "1.13", features = ["v4", "rng-getrandom"] }
+getrandom_v03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+getrandom_v02 = { package = "getrandom", version = "0.2", features = ["js"] }
+
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.34"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
