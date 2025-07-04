@@ -27,3 +27,15 @@ print(f"Children of B: {dag.get_children('B')}") # Expected: ['C']
 # Test ancestors (Rust-backed logic)
 ancestors_of_C = dag.get_ancestors_of(["C"])
 print(f"Ancestors of C: {ancestors_of_C}") # Expected: {'A', 'B', 'C'} (order may vary, depends on your ancestor definition)
+
+
+#  create dag 2
+dag2 = causalgraphs.RustDAG()
+dag2.add_nodes_from(["V", "W", "X", "Y", "Z"])
+dag2.add_edge("V", "X")
+dag2.add_edge("X", "Y")
+dag2.add_edge("X", "W")
+dag2.add_edge("W", "Z")
+dag2.add_edge("Y", "Z")
+ancestorsOfZ = dag2.get_ancestors_of(['Z'])
+print(f"Ancestors of Z: {ancestorsOfZ}")  # Expected: ['V', 'W', 'X', 'Y', 'Z'] (order may vary)

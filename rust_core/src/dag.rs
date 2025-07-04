@@ -94,7 +94,7 @@ impl RustDAG {
 
     /// Get all ancestors of given nodes (optimized Rust implementation)
     pub fn get_ancestors_of(&self, nodes: Vec<String>) -> Result<HashSet<String>, String> {
-        let mut ancestors: AHashSet<String> = AHashSet::new();
+        let mut ancestors: HashSet<String> = HashSet::new();
         let mut queue: VecDeque<NodeIndex> = VecDeque::new();
 
         // Initialize queue with input nodes
@@ -110,14 +110,17 @@ impl RustDAG {
         // BFS to find all ancestors
         while let Some(current_idx) = queue.pop_front() {
             for parent_idx in self.graph.neighbors_directed(current_idx, Direction::Incoming) {
-                let parent_name = &self.reverse_node_map[&parent_idx];
-                if ancestors.insert(parent_name.clone()) {
-                    queue.push_back(parent_idx);
+                if let Some(parent_name) = self.reverse_node_map.get(&parent_idx) {
+                    if ancestors.insert(parent_name.clone()) {
+                        queue.push_back(parent_idx);
+                    }
+                } else {
+                    return Err(format!("Node index {:?} not found in reverse map", parent_idx));
                 }
             }
         }
-        
-        Ok(ancestors.into_iter().collect())
+
+        Ok(ancestors)
     }
 
     /// Get all nodes in the graph
