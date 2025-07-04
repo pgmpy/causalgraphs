@@ -1,56 +1,39 @@
-# causalgraphs
-Rust implemention of causal graphs
+# CausalGraphs
 
+A cross-language library for working with causal graphs (DAGs) in Rust, Python, and WebAssembly.
 
-## Building & Installing the Python Extension
+## Structure
 
-First, make sure you have Rust installed on your system. If you haven't already done so, try following the instructions [here](https://www.rust-lang.org/tools/install).
+- **rust_core/**: Core Rust implementation of DAGs and causal graph logic.
+- **python_bindings/**: Python bindings using [PyO3](https://github.com/PyO3/pyo3) and [maturin](https://github.com/PyO3/maturin).
+- **wasm_bindings/**: WebAssembly bindings for use in JavaScript/Node.js.
 
+## Quick Start
 
-This project uses [PyO3](https://pyo3.rs/v0.25.1/) to create Python bindings for the Rust code.
-We use [Maturin](https://github.com/PyO3/maturin) build tool to compile(.so/.dll) our Rust core into a native Python module(.whl) and install it into a local venv. 
+### Rust
 
-1. **Clone the repo**  
-   ```bash
-   git clone https://github.com/pgmpy/causalgraphs.git
-   cd causalgraphs
-   ```
+```sh
+cd rust_core
+cargo test
+```
 
-2. **Create & activate a venv**  
-   ```bash
-    cd python
-    python3 -m venv .venv
-    source .venv/bin/activate
-   ```
-3. **Install Python requirements**  
-   ```bash
-    pip install -r requirements.txt
-   ```
-4. **Build & install the Rust extension**  
-   From the project root (where Cargo.toml and pyproject.toml live):
-      ```bash
-      maturin build --release
-      ```
-   This will compile the Rust code and generate a .whl file in the target/wheels/ directory. You can then install it:
+### Python
 
-      ```bash
-      pip install target/wheels/causalgraphs-0.1.0-*.whl
-      ```
+```sh
+cd python_bindings
+maturin develop
+python -c "import causalgraphs; print(dir(causalgraphs))"
+```
 
-      (Replace your_package_name-0.1.0-cp3x-cp3x-your_platform.whl with the actual filename.)
+### WebAssembly (Node.js)
 
-      ```bash
-      Note: The `causalgraphs` package is not yet published on PyPI. You must install it from the locally built wheel as shown above while the project is in active development.
-      ```
----
+```sh
+cd wasm_bindings
+npm install
+npm run build
+npm run test
+```
 
-5. **🚀 Usage**
+## License
 
-   Once installed, you can import the `DAG` from `causalgraphs` and use it just like a regular Python class.
-      ```bash
-      >>> from causalgraphs import RustDAG
-      >>> dag = RustDAG()
-      >>> dag.add_node("A")
-      >>> dag.nodes()
-      ["A"]
-      ```
+MIT
