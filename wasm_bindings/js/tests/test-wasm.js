@@ -38,11 +38,11 @@ async function testWasm() {
         // Test graph traversal
         const parentsOfC = dag.getParents('C');
         const childrenOfA = dag.getChildren('A');
-        // const ancestorsOfC = dag.getAncestorsOf(['C']);
+        const ancestorsOfC = dag.getAncestorsOf(['C']);
 
         console.log(`Parents of C: ${parentsOfC.join(', ')}`);
         console.log(`Children of A: ${childrenOfA.join(', ')}`);
-        // console.log(`Ancestors of C: ${ancestorsOfC.join(', ')}\n`);
+        console.log(`Ancestors of C: ${ancestorsOfC.join(', ')}\n`);
 
         // Test with latent variables
         dag.addNode('L', true); // Add latent node
@@ -82,4 +82,4 @@ async function testWasm() {
 }
 
 // Run the test
-testWasm(); 
+testWasm();

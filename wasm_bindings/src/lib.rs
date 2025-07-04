@@ -1,10 +1,10 @@
 use wasm_bindgen::prelude::*;
-use serde::{Deserialize, Serialize}; // For serializing/deserializing data to JS
-use std::collections::HashSet; // For returning HashSet from Rust to Vec in JS
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[wasm_bindgen(js_name = RustDAG)]
-#[derive(Clone)] // Make sure RustDAG in rust_core also derives Clone
-pub struct RustDAG { // Use a wrapper struct named WasmDAG for clarity
+#[derive(Clone)]
+pub struct RustDAG {
     inner: rust_core::RustDAG,
 }
 
@@ -21,7 +21,7 @@ impl RustDAG {
             .map_err(|e| JsValue::from_str(&e))
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = addNodesFrom)]
     pub fn add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<u8>>) -> Result<(), JsValue> {
         let latent_bools = latent.map(|v| v.into_iter().map(|x| x != 0).collect());
         self.inner.add_nodes_from(nodes, latent_bools).map_err(|e| JsValue::from_str(&e.to_string()))
@@ -59,7 +59,7 @@ impl RustDAG {
     }
 
     #[wasm_bindgen(js_name = edges)]
-    pub fn edges(&self) -> JsValue { // Return JsValue for complex types like Vec<(String, String)>
+    pub fn edges(&self) -> JsValue {
         serde_wasm_bindgen::to_value(&self.inner.edges()).unwrap_or_else(|_| JsValue::from_str("Failed to serialize edges"))
     }
 
@@ -87,8 +87,8 @@ pub fn main_js() -> Result<(), JsValue> {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
-    // You can do some initialization here if needed
-    web_sys::console::log_1(&"WasmDAG loaded!".into());
+    // logs
+    web_sys::console::log_1(&"RustDAG loaded!".into());
 
     Ok(())
 }
