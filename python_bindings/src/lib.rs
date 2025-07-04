@@ -64,7 +64,7 @@ impl PyRustDAG {
 }
 
 #[pymodule]
-fn causalgraphs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn causalgraphs(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyRustDAG>()?;
     Ok(())
 }

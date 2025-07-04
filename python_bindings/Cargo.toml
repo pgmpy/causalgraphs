@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rust_core = { path = "../rust_core" }
-pyo3 = { version = "0.20", features = ["extension-module"] }
+pyo3 = { version = "0.21", features = ["extension-module"] }
