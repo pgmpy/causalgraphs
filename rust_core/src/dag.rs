@@ -1,4 +1,3 @@
-use ahash::AHashSet;
 use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
