@@ -1,0 +1,12 @@
+[package]
+name = "causalgraphs"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "causalgraphs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rust_core = { path = "../rust_core" }
+pyo3 = { version = "0.21", features = ["extension-module"] }
