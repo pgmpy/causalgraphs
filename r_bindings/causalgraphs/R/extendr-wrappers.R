@@ -10,19 +10,15 @@
 #' @useDynLib causalgraphs, .registration = TRUE
 NULL
 
-# Ugly fix 2: ensure that the environment is set correctly (TODO: need to find a fix for this ASAP)
-# did this because `self` was not being set correctly in the R6 class
-`_self` <- environment()$`_self`
-
 RDAG <- new.env(parent = emptyenv())
 
 RDAG$new <- function() .Call(wrap__RDAG__new)
 
-RDAG$add_node <- function(node, latent) .Call(wrap__RDAG__add_node, `_self`, node, latent)
+RDAG$add_node <- function(node, latent) .Call(wrap__RDAG__add_node, self, node, latent)
 
 RDAG$add_nodes_from <- function(nodes, latent) .Call(wrap__RDAG__add_nodes_from, self, nodes, latent)
 
-RDAG$add_edge <- function(u, v, weight) .Call(wrap__RDAG__add_edge, `_self`, u, v, weight)
+RDAG$add_edge <- function(u, v, weight) .Call(wrap__RDAG__add_edge, self, u, v, weight)
 
 RDAG$get_parents <- function(node) .Call(wrap__RDAG__get_parents, self, node)
 

@@ -91,17 +91,17 @@ mv_txt <- readLines(mv_fp)
 
 # Ugly fix 1: pipe operator is not working for R < 4.2 (TODO: Find a way to fix this, by upgrading to R >= 4.2)
 # before:
-# new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt) |>
-#   gsub("@PROFILE@", .profile, x = _) |>
-#   gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
-#   gsub("@LIBDIR@", .libdir, x = _) |>
-#   gsub("@TARGET@", .target, x = _)
+new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt) |>
+  gsub("@PROFILE@", .profile, x = _) |>
+  gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
+  gsub("@LIBDIR@", .libdir, x = _) |>
+  gsub("@TARGET@", .target, x = _)
 # replace placeholder values
-new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt)
-new_txt <- gsub("@PROFILE@", .profile, new_txt)
-new_txt <- gsub("@CLEAN_TARGET@", .clean_targets, new_txt)
-new_txt <- gsub("@LIBDIR@", .libdir, new_txt)
-new_txt <- gsub("@TARGET@", .target, new_txt)
+# new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt)
+# new_txt <- gsub("@PROFILE@", .profile, new_txt)
+# new_txt <- gsub("@CLEAN_TARGET@", .clean_targets, new_txt)
+# new_txt <- gsub("@LIBDIR@", .libdir, new_txt)
+# new_txt <- gsub("@TARGET@", .target, new_txt)
 
 message("Writing `", mv_ofp, "`.")
 con <- file(mv_ofp, open = "wb")
