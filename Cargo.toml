@@ -3,5 +3,5 @@ members = [
     "rust_core",
     "python_bindings",
     "wasm_bindings"
-]
+, "r_bindings"]
 resolver = "2"

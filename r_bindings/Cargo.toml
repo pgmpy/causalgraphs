@@ -1,0 +1,11 @@
+[package]
+name = "r_bindings"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rust_core = { path = "../rust_core" }
+extendr-api = "0.4.0"
