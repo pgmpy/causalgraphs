@@ -31,33 +31,43 @@ It is ideal for scientific computing, causal inference, and graph-based modeling
 
 ## Installation
 
-You need a working Rust toolchain (`cargo`, `rustc`) and R (>= 4.2).
-
-Install the development version from your local checkout:
-
-```r
-# Make sure you're in the right directory
-setwd("causalgraphs/r-bindings/causalgraphs")
-
-# Generate documentation and build the package
-rextendr::document()
-
-# Load the package for testing
-devtools::load_all()
-```
-
-Or, You can install the development version of `causalgraphs` from GitHub using `pak` or `devtools`. 
-Remember to replace `your-github-username` with the actual GitHub user or organization name.:
+First, ensure you have a working Rust toolchain. You can install it by following the instructions at rustup.rs.
+You can install the development version of `causalgraphs` from GitHub. We recommend using the `pak` package for a smooth installation of all dependencies.
 
 ```r
-
-# Recommended: using pak
 # install.packages("pak")
-pak::pkg_install("your-github-username/causalgraphs/r_bindings/causalgraphs")
+pak::pkg_install("pgmpy/causalgraphs/r_bindings/causalgraphs")
 
 # Or using devtools:
 # install.packages("devtools")
-devtools::install_github("your-github-username/causalgraphs", subdir = "r_bindings/causalgraphs")
+devtools::install_github("pgmpy/causalgraphs", subdir = "r_bindings/causalgraphs")
+```
+
+## Development
+
+- Rust source: `src/rust/`
+- R wrappers: `R/`
+- Test and experiment: `test.R`
+
+If you want to contribute to the package, you'll need to build it from a local clone of the repository.
+
+**Clone the repository:**
+```sh
+  git clone https://github.com/pgmpy/causalgraphs.git
+  cd causalgraphs/r_bindings/causalgraphs
+```
+
+**Build and Test in R:**
+From an R session inside the `r_bindings/causalgraphs` directory:
+```r
+# Sync R ↔ Rust bindings:
+# 1. Compiles the Rust crate into a shared library (causalgraphs.so/.dll/.dylib)
+# 2. Generates/updates R wrapper functions in R/extendr-wrappers.R
+# Run this whenever you change the Rust code or add new #[extendr] functions.
+rextendr::document()
+
+# Load the package into R
+devtools::load_all()
 ```
 
 ## Example
@@ -92,18 +102,6 @@ print(edges)
 cat("Parents of B:", dag$get_parents("B"), "\n")
 cat("Children of A:", dag$get_children("A"), "\n")
 cat("Ancestors of C:", dag$get_ancestors_of(c("C")), "\n")
-```
-
-## Development
-
-- Rust source: `src/rust/`
-- R wrappers: `R/`
-- Test and experiment: `test.R`
-
-To update Rust wrappers after editing Rust code, run:
-
-```r
-rextendr::document()
 ```
 
 ## License
