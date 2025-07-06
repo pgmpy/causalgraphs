@@ -1,6 +1,5 @@
 use extendr_api::prelude::*;
 use rust_core::RustDAG;
-use std::collections::HashSet;
 
 #[extendr]
 #[derive(Debug, Clone)]

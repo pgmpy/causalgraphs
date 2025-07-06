@@ -1,0 +1,115 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# causalgraphs
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+**causalgraphs** provides fast, flexible, and cross-language causal graph (DAG) manipulation in R, powered by Rust via [extendr](https://extendr.github.io/).  
+It is ideal for scientific computing, causal inference, and graph-based modeling.
+
+## Features
+
+- Add/remove nodes and edges in directed acyclic graphs (DAGs)
+- Mark nodes as latent (unobserved)
+- Query parents, children, ancestors, and other graph properties
+- Efficient Rust backend for high performance
+- Seamless R interface
+
+## Installation
+
+You need a working Rust toolchain (`cargo`, `rustc`) and R (>= 4.2).
+
+Install the development version from your local checkout:
+
+```r
+# Make sure you're in the right directory
+setwd("causalgraphs/r-bindings/causalgraphs")
+
+# Generate documentation and build the package
+rextendr::document()
+
+# Load the package for testing
+devtools::load_all()
+```
+
+Or, You can install the development version of `causalgraphs` from GitHub using `pak` or `devtools`. 
+Remember to replace `your-github-username` with the actual GitHub user or organization name.:
+
+```r
+
+# Recommended: using pak
+# install.packages("pak")
+pak::pkg_install("your-github-username/causalgraphs/r_bindings/causalgraphs")
+
+# Or using devtools:
+# install.packages("devtools")
+devtools::install_github("your-github-username/causalgraphs", subdir = "r_bindings/causalgraphs")
+```
+
+## Example
+
+```{r example, eval=FALSE}
+library(causalgraphs)
+
+# Create a new DAG
+dag <- RDAG$new()
+
+# Add nodes
+dag$add_node("A", latent = FALSE)
+dag$add_node("B", latent = FALSE)
+dag$add_node("L", latent = TRUE)  # Latent node
+
+# Add edges
+dag$add_edge("A", "B", 10)
+dag$add_edge("B", "C", 20)
+
+# Inspect graph
+cat("Nodes:", dag$nodes(), "\n")
+cat("Latents:", dag$latents(), "\n")
+cat("Node count:", dag$node_count(), "\n")
+cat("Edge count:", dag$edge_count(), "\n")
+
+# Get edges
+edges <- dag$edges()
+cat("Edges:\n")
+print(edges)
+
+# Query relationships
+cat("Parents of B:", dag$get_parents("B"), "\n")
+cat("Children of A:", dag$get_children("A"), "\n")
+cat("Ancestors of C:", dag$get_ancestors_of(c("C")), "\n")
+```
+
+## Development
+
+- Rust source: `src/rust/`
+- R wrappers: `R/`
+- Test and experiment: `test.R`
+
+To update Rust wrappers after editing Rust code, run:
+
+```r
+rextendr::document()
+```
+
+## License
+
+MIT
+
+---
+
+*This README was generated from `README.Rmd`. Please edit that file and knit to update.*
