@@ -70,6 +70,10 @@ rextendr::document()
 devtools::load_all()
 ```
 
+## Developer Notes
+
+Whenever you're working on both `rust_core` and `r_causalgraphs` locally, make sure you comment the github `rust_core` dependency in `Cargo.toml` and uncomment the local path dependency if you are developing locally.
+
 ## Example
 
 ```{r example, eval=FALSE}
