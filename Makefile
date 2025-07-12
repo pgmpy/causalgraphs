@@ -17,7 +17,7 @@ core:
 python: core
 	@echo "\n=== Building Python Bindings ==="
 	cd $(PY_BINDINGS) && \
-	pip install maturin && \
+	pip install -r requirements.txt && \
 	maturin build --release --out target/wheels && \
 	pip install target/wheels/*.whl
 
