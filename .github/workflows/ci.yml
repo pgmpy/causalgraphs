@@ -37,6 +37,20 @@ jobs:
       with:
         r-version: "4.5"
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libcurl4-openssl-dev \
+          libssl-dev \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          libharfbuzz-dev \
+          libfribidi-dev \
+          libpng-dev \
+          libtiff5-dev \
+          libjpeg-dev
+
     - name: Install JS dependencies
       working-directory: wasm_bindings
       run: npm ci
