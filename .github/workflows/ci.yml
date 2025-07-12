@@ -22,9 +22,6 @@ jobs:
         components: rustfmt, clippy
         override: true
 
-    - name: Install wasm-pack
-      run: cargo install wasm-pack
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -36,7 +33,7 @@ jobs:
         node-version: "18"
 
     - name: Set up R
-      uses: r-lib/actions/setup-r@v2
+      uses: r-lib/actions/setup-r-dependencies@v2
       with:
         r-version: "4.2"
 

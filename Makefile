@@ -24,6 +24,11 @@ python: core
 
 wasm: core
 	@echo "\n=== Building WebAssembly Bindings ==="
+	# ensure wasm-pack is in PATH (installs it 1st time only)
+	@if ! command -v wasm-pack >/dev/null 2>&1; then \
+	  echo "→ Installing wasm-pack…"; \
+	  cargo install wasm-pack; \
+	fi
 	cd $(WASM_BINDINGS) && \
 		npm install && \
 		npm run build && \
