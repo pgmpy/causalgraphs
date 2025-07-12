@@ -21,7 +21,6 @@ python: core
 	maturin build --release --out target/wheels && \
 	pip install target/wheels/*.whl
 
-
 wasm: core
 	@echo "\n=== Building WebAssembly Bindings ==="
 	# ensure wasm-pack is in PATH (installs it 1st time only)
@@ -37,6 +36,7 @@ wasm: core
 r: core
 	@echo "\n=== Building R Bindings ==="
 	cd $(R_BINDINGS) && \
+	Rscript -e "if(!require('devtools')) install.packages('devtools', repos='https://cloud.r-project.org')" && \
 	Rscript -e "if(!require('rextendr')) install.packages('rextendr', repos='https://cloud.r-project.org')" && \
 	Rscript -e "rextendr::document()"
 
