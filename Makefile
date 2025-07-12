@@ -37,7 +37,8 @@ wasm: core
 r: core
 	@echo "\n=== Building R Bindings ==="
 	cd $(R_BINDINGS) && \
-		Rscript -e "rextendr::document()"
+	Rscript -e "if(!require('rextendr')) install.packages('rextendr', repos='https://cloud.r-project.org')" && \
+	Rscript -e "rextendr::document()"
 
 install: python wasm r
 

@@ -33,9 +33,9 @@ jobs:
         node-version: "18"
 
     - name: Set up R
-      uses: r-lib/actions/setup-r-dependencies@v2
+      uses: r-lib/actions/setup-r@v2
       with:
-        r-version: "4.2"
+        r-version: "4.5"
 
     - name: Install JS dependencies
       working-directory: wasm_bindings
@@ -47,7 +47,8 @@ jobs:
 
     - name: Install R deps
       run: |
-        Rscript -e 'install.packages(c("devtools","rextendr"), repos="https://cloud.r-project.org")'
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+        Rscript -e 'install.packages(c("devtools", "rextendr"), repos="https://cloud.r-project.org")'
 
     - name: Build all components
       run: make all
