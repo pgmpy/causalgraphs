@@ -16,7 +16,11 @@ core:
 
 python: core
 	@echo "\n=== Building Python Bindings ==="
-	cd $(PY_BINDINGS) && maturin develop --release
+	cd $(PY_BINDINGS) && \
+	pip install maturin && \
+	maturin build --release --out target/wheels && \
+	pip install target/wheels/*.whl
+
 
 wasm: core
 	@echo "\n=== Building WebAssembly Bindings ==="
