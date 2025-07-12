@@ -19,7 +19,11 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+        components: rustfmt, clippy
         override: true
+
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
 
     - name: Set up Python
       uses: actions/setup-python@v5
