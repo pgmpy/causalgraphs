@@ -23,3 +23,5 @@ venv/
 .venv/
 
 *pyc*
+
+node_modules/
