@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -18,6 +18,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # Setup: Toolchains
     - name: Set up Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -40,7 +41,8 @@ jobs:
       with:
         r-version: "4.5"
 
-    - name: Install system dependencies
+    # OS-specific system dependencies (Linux only)
+    - name: Install system dependencies (Linux only)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
@@ -55,22 +57,29 @@ jobs:
           libtiff5-dev \
           libjpeg-dev
 
+    # Node dependencies
     - name: Install JS dependencies
       working-directory: wasm_bindings
       run: npm ci
 
-    - name: Install Python deps
+    # Python dependencies
+    - name: Install Python dependencies
       working-directory: python_bindings
-      run: pip install --upgrade maturin
+      run: |
+        pip install --upgrade pip
+        pip install maturin pytest
 
-    - name: Install R deps
+    # R dependencies (Linux only)
+    - name: Install R dependencies (Linux only)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get install -y libcurl4-openssl-dev libssl-dev
         Rscript -e 'install.packages(c("devtools", "rextendr"), repos="https://cloud.r-project.org")'
 
+    # Build all bindings (Rust, Python, WASM, R)
     - name: Build all components
       run: make all
 
+    # Run full test suite
     - name: Run full test suite
       run: make test
