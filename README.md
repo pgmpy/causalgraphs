@@ -18,31 +18,36 @@ To build and develop this project locally, you will need:
 * [R 4.2+](https://www.r-project.org/)
 * [make](https://www.gnu.org/software/make/) (usually pre-installed on Linux/macOS, available via build tools on Windows)
 
+## Supported Platforms
+
+This library is actively developed and tested on:
+- **Windows** (via WSL, or native MSVC toolchain for Rust + Rtools for R)
+- **Linux** (Ubuntu, other distros)
+- **macOS** 
+
 ## Quick Start
 
-### Rust
+We provide a top‑level `Makefile` to save you typing:
 
-```sh
-cd rust_core
-cargo test
-```
+- **Build everything** (Rust core + Python + WASM + R):
 
-### Python
+  ```sh
+  make all
+  ```
 
-```sh
-cd python_bindings
-maturin develop
-python -c "import causalgraphs; print(dir(causalgraphs))"
-```
+- **Run all tests**:
 
-### WebAssembly (Node.js)
+  ```sh
+  make test
+  ```
 
-```sh
-cd wasm_bindings
-npm install
-npm run build
-npm run test
-```
+| Target        | What it does                                     |
+| ------------- | ------------------------------------------------ |
+| `make core`   | Builds only the `rust_core` crate.               |
+| `make python` | Builds & installs Python bindings.               |
+| `make wasm`   | Builds WASM modules for JS/Node via wasm-pack    |
+| `make r`      | Generates R wrappers via `rextendr::document()`. |
+
 
 ## License
 

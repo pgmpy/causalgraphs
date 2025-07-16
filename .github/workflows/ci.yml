@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Setup: Toolchains
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+        override: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "18"
+
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: "4.5"
+
+    # OS-specific system dependencies (Linux only)
+    - name: Install system dependencies (Linux only)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libcurl4-openssl-dev \
+          libssl-dev \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          libharfbuzz-dev \
+          libfribidi-dev \
+          libpng-dev \
+          libtiff5-dev \
+          libjpeg-dev
+
+    # Node dependencies
+    - name: Install JS dependencies
+      working-directory: wasm_bindings
+      run: npm ci
+
+    # Python dependencies
+    - name: Install Python dependencies
+      working-directory: python_bindings
+      run: |
+        pip install --upgrade pip
+        pip install maturin pytest
+
+    # R dependencies (Linux only)
+    - name: Install R dependencies (Linux only)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+        Rscript -e 'install.packages(c("devtools", "rextendr"), repos="https://cloud.r-project.org")'
+
+    # Build all bindings (Rust, Python, WASM, R)
+    - name: Build all components
+      run: make all
+
+    # Run full test suite
+    - name: Run full test suite
+      run: make test

@@ -16,10 +16,18 @@ core:
 
 python: core
 	@echo "\n=== Building Python Bindings ==="
-	cd $(PY_BINDINGS) && maturin develop --release
+	cd $(PY_BINDINGS) && \
+	pip install -r requirements.txt && \
+	maturin build --release --out target/wheels && \
+	pip install target/wheels/*.whl
 
 wasm: core
 	@echo "\n=== Building WebAssembly Bindings ==="
+	# ensure wasm-pack is in PATH (installs it 1st time only)
+	@if ! command -v wasm-pack >/dev/null 2>&1; then \
+	  echo "→ Installing wasm-pack…"; \
+	  cargo install wasm-pack; \
+	fi
 	cd $(WASM_BINDINGS) && \
 		npm install && \
 		npm run build && \
@@ -28,7 +36,9 @@ wasm: core
 r: core
 	@echo "\n=== Building R Bindings ==="
 	cd $(R_BINDINGS) && \
-		Rscript -e "rextendr::document()"
+	Rscript -e "if(!require('devtools')) install.packages('devtools', repos='https://cloud.r-project.org')" && \
+	Rscript -e "if(!require('rextendr')) install.packages('rextendr', repos='https://cloud.r-project.org')" && \
+	Rscript -e "rextendr::document()"
 
 install: python wasm r
 
