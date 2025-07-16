@@ -5,7 +5,7 @@
   "type": "module",
   "main": "causalgraphs.js",
   "scripts": {
-    "test": "node js/tests/test-wasm.js",
+    "test": "jest",
     "demo": "python3 -m http.server 8001",
     "build": "wasm-pack build --target web --out-dir js/pkg-web",
     "build:node": "wasm-pack build --target nodejs --out-dir js/pkg-node",
@@ -25,5 +25,8 @@
     "pkg-node/",
     "demo/",
     "test/"
-  ]
-} 
+  ],
+  "devDependencies": {
+    "jest": "^30.0.4"
+  }
+}
