@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 #[derive(Debug, Clone)] // Add Debug for easier printing in Rust tests
 pub struct RustDAG {
     pub graph: DiGraph<String, f64>, // Make fields public if bindings need direct access,
-    pub node_map: HashMap<String, NodeIndex>, // or provide internal methods.
+    pub node_map: HashMap<String, NodeIndex>,
     pub reverse_node_map: HashMap<NodeIndex, String>,
     pub latents: HashSet<String>,
 }
@@ -202,6 +202,63 @@ impl RustDAG {
     pub fn is_dconnected(&self, start: &str, end: &str, observed: Option<Vec<String>>, include_latents: bool) -> Result<bool, String> {
         let trails = self.active_trail_nodes(vec![start.to_string()], observed, include_latents)?;
         Ok(trails.get(start).map(|nodes| nodes.contains(end)).unwrap_or(false))
+    }
+
+    pub fn minimal_dseparator(
+        &self, 
+        start: &str, 
+        end: &str, 
+        include_latents: bool
+    ) -> Result<Option<HashSet<String>>, String> {
+        if self.has_edge(start, end) || self.has_edge(end, start) {
+            return Err("No possible separators because start and end are adjacent".to_string());
+        }
+
+        // Create proper ancestral graph
+        let ancestral_graph = self.get_ancestral_graph(vec![start.to_string(), end.to_string()])?;
+        
+        let mut separator: HashSet<String> = self.get_parents(start)?
+            .into_iter()
+            .chain(self.get_parents(end)?.into_iter())
+            .collect();
+
+        if !include_latents {
+            let mut changed = true;
+            while changed {
+                changed = false;
+                let mut new_separator: HashSet<String> = HashSet::new();
+                
+                for node in &separator {
+                    if self.latents.contains(node) {
+                        new_separator.extend(self.get_parents(node)?);
+                        changed = true;
+                    } else {
+                        new_separator.insert(node.clone());
+                    }
+                }
+                separator = new_separator;
+            }
+        }
+
+        separator.remove(start);
+        separator.remove(end);
+
+        // If the initial set is not able to d-separate, no d-separator is possible.
+        if ancestral_graph.is_dconnected(start, end, Some(separator.iter().cloned().collect()), include_latents)? {
+            return Ok(None);
+        }
+
+        let mut minimal_separator = separator.clone();
+        for u in separator {
+            let test_separator: Vec<String> = minimal_separator.iter().cloned().filter(|x| x != &u).collect();
+            
+            // If still d-separated WITHOUT this node, we can remove it
+            if !ancestral_graph.is_dconnected(start, end, Some(test_separator), include_latents)? {
+                minimal_separator.remove(&u);
+            }
+        }
+
+        Ok(Some(minimal_separator))
     }
 
     /// Check if two nodes are neighbors (directly connected in either direction)
