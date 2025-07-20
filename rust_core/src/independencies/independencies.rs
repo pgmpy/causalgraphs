@@ -9,23 +9,6 @@ pub struct IndependenceAssertion {
     pub all_vars: HashSet<String>,
 }
 
-impl Hash for IndependenceAssertion {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Convert HashSets to BTreeSets for deterministic, sortable representation
-        let event1_ordered: BTreeSet<_> = self.event1.iter().collect();
-        let event2_ordered: BTreeSet<_> = self.event2.iter().collect();
-        let event3_ordered: BTreeSet<_> = self.event3.iter().collect();
-        
-        // Create symmetric hash: X ⊥ Y | Z should equal Y ⊥ X | Z
-        let mut symmetric_pair: Vec<BTreeSet<&String>> = vec![event1_ordered, event2_ordered];
-        symmetric_pair.sort(); // BTreeSet implements Ord, so this works
-        
-        // Hash the components
-        symmetric_pair.hash(state);    // Symmetric part
-        event3_ordered.hash(state);    // Conditioning set
-    }
-}
-
 impl IndependenceAssertion {
     pub fn new(
         event1: HashSet<String>,
@@ -82,6 +65,23 @@ impl std::fmt::Display for IndependenceAssertion {
             let e3_str = self.event3.iter().cloned().collect::<Vec<_>>().join(", ");
             write!(f, "({} ⊥ {} | {})", e1_str, e2_str, e3_str)
         }
+    }
+}
+
+impl Hash for IndependenceAssertion {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Convert HashSets to BTreeSets for deterministic, sortable representation
+        let event1_ordered: BTreeSet<_> = self.event1.iter().collect();
+        let event2_ordered: BTreeSet<_> = self.event2.iter().collect();
+        let event3_ordered: BTreeSet<_> = self.event3.iter().collect();
+        
+        // Create symmetric hash: X ⊥ Y | Z should equal Y ⊥ X | Z
+        let mut symmetric_pair: Vec<BTreeSet<&String>> = vec![event1_ordered, event2_ordered];
+        symmetric_pair.sort(); // BTreeSet implements Ord, so this works
+        
+        // Hash the components
+        symmetric_pair.hash(state);    // Symmetric part
+        event3_ordered.hash(state);    // Conditioning set
     }
 }
 
@@ -337,8 +337,11 @@ impl Independencies {
 
     pub fn reduce(&self) -> Self {
         let mut unique_assertions: Vec<IndependenceAssertion> = 
-            self.assertions.iter().cloned().collect::<std::collections::HashSet<_>>()
+            self.assertions.iter().cloned().collect::<HashSet<_>>()
             .into_iter().collect();
+        
+        // Sort by event2 size (descending) to process more general assertions first
+        // unique_assertions.sort_by(|a, b| b.event2.len().cmp(&a.event2.len()));
         
         let mut reduced_assertions = Vec::new();
 
@@ -346,32 +349,13 @@ impl Independencies {
             let temp_independencies: Independencies = Self::from_assertions(reduced_assertions.clone());
             let new_assertion: Independencies = Self::from_assertions(vec![assertion.clone()]);
 
-            // Check if the current new assertion is already entailed by the reduced set, meaning if it doesn't add new information
+            // Only add if not entailed by current reduced set
             if !temp_independencies.entails(&new_assertion) {
-                let mut removed_any = true;
-                while removed_any {
-                    removed_any = false;
-                    let mut i = 0;
-                    while i < reduced_assertions.len() {
-                        let existing_temp = Self::from_assertions(vec![reduced_assertions[i].clone()]);
-                        
-                        if existing_temp != new_assertion {
-                            // Old assertion: A ⊥ B | D (existing in reduced_assertions) & New assertion: A ⊥ B,C | D (being added)
-                            // Does A ⊥ B | D entail A ⊥ B,C | D? NO (specific doesn't imply general)
-                            // Does A ⊥ B,C | D entail A ⊥ B | D? YES (via SG1 decomposition)
-                            // Result: Remove the old assertion since the new one contains all its information plus more
-                            let remove_old = !existing_temp.entails(&new_assertion) && 
-                                           new_assertion.entails(&existing_temp);
-                            
-                            if remove_old {
-                                reduced_assertions.remove(i);
-                                removed_any = true;
-                                break;
-                            }
-                        }
-                        i += 1;
-                    }
-                }
+                // Remove any existing assertions that are entailed by the new assertion
+                reduced_assertions.retain(|existing| {
+                    let existing_temp = Self::from_assertions(vec![existing.clone()]);
+                    !new_assertion.entails(&existing_temp)
+                });
                 reduced_assertions.push(assertion);
             }
         }
