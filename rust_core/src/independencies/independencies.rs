@@ -281,29 +281,7 @@ impl Independencies {
     fn sg3_contraction(&self, ind1: &IndependenceAssertion, ind2: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
         let mut results = Vec::new();
         
-        // Must have same event1
-        if ind1.event1 != ind2.event1 {
-            return results;
-        }
-        
-        // Simple case: same conditioning set, combine the independence sets
-        if ind1.event3 == ind2.event3 {
-            let mut combined_event2 = ind1.event2.clone();
-            combined_event2.extend(ind2.event2.iter().cloned());
-            
-            // Only add if it's actually combining something new
-            if combined_event2 != ind1.event2 && combined_event2 != ind2.event2 {
-                if let Ok(assertion) = IndependenceAssertion::new(
-                    ind1.event1.clone(),
-                    combined_event2,
-                    if ind1.event3.is_empty() { None } else { Some(ind1.event3.clone()) },
-                ) {
-                    results.push(assertion);
-                }
-            }
-        }
-        
-        // Standard contraction rule cases
+        // Standard contraction rule cases (try both directions)
         results.extend(self.try_standard_contraction(ind1, ind2));
         results.extend(self.try_standard_contraction(ind2, ind1));
         

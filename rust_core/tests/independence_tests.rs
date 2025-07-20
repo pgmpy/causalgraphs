@@ -270,21 +270,6 @@ mod independence_tests {
             assert!(ind1.entails(&ind2));
             assert!(!ind2.entails(&ind1));
         }
-
-        #[test]
-        fn test_equivalence() {
-            let mut ind1 = Independencies::new();
-            ind1.add_assertion(create_assertion(
-                vec!["X"], vec!["Y", "W"], Some(vec!["Z"])
-            ));
-
-            let mut ind2 = Independencies::new();
-            ind2.add_assertion(create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"])));
-            ind2.add_assertion(create_assertion(vec!["X"], vec!["W"], Some(vec!["Z"])));
-
-            // These should be equivalent
-            assert!(ind1.is_equivalent(&ind2));
-        }
     }
 
     #[cfg(test)]
@@ -382,4 +367,175 @@ mod independence_tests {
             assert!(reduced.contains(&independent));
         }
     }
+
+    #[cfg(test)]
+    mod test_complex_pgmpy_scenarios {
+        use super::*;
+        use rust_core::Independencies;
+
+        // Helper to create complex Independencies matching PGMPY patterns
+        fn create_independencies_3() -> Independencies {
+            let mut ind = Independencies::new();
+            ind.add_assertions_from_tuples(vec![
+                (vec!["a".to_string()], vec!["b".to_string(), "c".to_string(), "d".to_string()], Some(vec!["e".to_string(), "f".to_string(), "g".to_string()])),
+                (vec!["c".to_string()], vec!["d".to_string(), "e".to_string(), "f".to_string()], Some(vec!["g".to_string(), "h".to_string()]))
+            ]).unwrap();
+            ind
+        }
+
+        fn create_independencies_4() -> Independencies {
+            let mut ind = Independencies::new();
+            ind.add_assertions_from_tuples(vec![
+                (vec!["f".to_string(), "d".to_string(), "e".to_string()], vec!["c".to_string()], Some(vec!["h".to_string(), "g".to_string()])),
+                (vec!["b".to_string(), "c".to_string(), "d".to_string()], vec!["a".to_string()], Some(vec!["f".to_string(), "g".to_string(), "e".to_string()]))
+            ]).unwrap();
+            ind
+        }
+
+        fn create_independencies_5() -> Independencies {
+            let mut ind = Independencies::new();
+            ind.add_assertions_from_tuples(vec![
+                (vec!["a".to_string()], vec!["b".to_string(), "c".to_string(), "d".to_string()], Some(vec!["e".to_string(), "f".to_string(), "g".to_string()])),
+                (vec!["c".to_string()], vec!["d".to_string(), "e".to_string(), "f".to_string()], Some(vec!["g".to_string()]))
+            ]).unwrap();
+            ind
+        }
+
+        #[test]
+        fn test_complex_multi_assertion_equality() {
+            // This tests the complex scenario from PGMPY setUp method
+            let ind3 = create_independencies_3();
+            let ind4 = create_independencies_4();
+            let ind5 = create_independencies_5();
+
+            // These should be equal due to symmetric equivalence
+            assert_eq!(ind3, ind4, "Independencies3 and Independencies4 should be equal");
+            
+            // These should not be equal
+            assert_ne!(ind3, ind5, "Independencies3 and Independencies5 should not be equal");
+            assert_ne!(ind4, ind5, "Independencies4 and Independencies5 should not be equal");
+        }
+
+        #[test]
+        fn test_pgmpy_complex_equivalence_scenarios() {
+            // Test case 1: ind1 vs ind2 (should NOT be equivalent)
+            let mut ind1 = Independencies::new();
+            ind1.add_assertions_from_tuples(vec![
+                (vec!["X".to_string()], vec!["Y".to_string(), "W".to_string()], Some(vec!["Z".to_string()]))
+            ]).unwrap();
+
+            let mut ind2 = Independencies::new();
+            ind2.add_assertions_from_tuples(vec![
+                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["Z".to_string()])),
+                (vec!["X".to_string()], vec!["W".to_string()], Some(vec!["Z".to_string()]))
+            ]).unwrap();
+
+            // This should be FALSE - ind1 should NOT be equivalent to ind2
+            assert!(!ind1.is_equivalent(&ind2), "ind1 should NOT be equivalent to ind2");
+
+            // Test case 2: ind1 vs ind3 (should be equivalent)
+            let mut ind3 = Independencies::new();
+            ind3.add_assertions_from_tuples(vec![
+                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["Z".to_string()])),
+                (vec!["X".to_string()], vec!["W".to_string()], Some(vec!["Z".to_string()])),
+                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["W".to_string(), "Z".to_string()]))
+            ]).unwrap();
+
+            // This should be TRUE - ind1 should be equivalent to ind3
+            assert!(ind1.is_equivalent(&ind3), "ind1 should be equivalent to ind3");
+        }
+
+        #[test]
+        fn test_comprehensive_equality_edge_cases() {
+            let empty_ind = Independencies::new();
+            
+            let mut non_empty_ind = Independencies::new();
+            non_empty_ind.add_assertions_from_tuples(vec![
+                (vec!["A".to_string()], vec!["B".to_string()], Some(vec!["C".to_string()]))
+            ]).unwrap();
+
+            // Empty vs non-empty should be false
+            assert_ne!(empty_ind, non_empty_ind, "Empty and non-empty independencies should not be equal");
+            
+            // Non-empty vs empty should be false  
+            assert_ne!(non_empty_ind, empty_ind, "Non-empty and empty independencies should not be equal");
+            
+            // Empty vs empty should be true
+            let another_empty = Independencies::new();
+            assert_eq!(empty_ind, another_empty, "Two empty independencies should be equal");
+            
+            // Test inequality operator consistency
+            assert!(empty_ind != non_empty_ind, "Inequality operator should work");
+            assert!(!(empty_ind != another_empty), "Double negative inequality should work");
+        }
+
+        #[test] 
+        fn test_complex_symmetric_equivalence() {
+            // Create complex assertions that test symmetry at multiple levels
+            let mut ind_a = Independencies::new();
+            ind_a.add_assertions_from_tuples(vec![
+                (vec!["X".to_string(), "Y".to_string()], vec!["A".to_string(), "B".to_string()], Some(vec!["Z".to_string()])),
+                (vec!["P".to_string()], vec!["Q".to_string(), "R".to_string(), "S".to_string()], Some(vec!["T".to_string(), "U".to_string()]))
+            ]).unwrap();
+
+            let mut ind_b = Independencies::new();
+            ind_b.add_assertions_from_tuples(vec![
+                (vec!["A".to_string(), "B".to_string()], vec!["X".to_string(), "Y".to_string()], Some(vec!["Z".to_string()])),
+                (vec!["P".to_string()], vec!["S".to_string(), "Q".to_string(), "R".to_string()], Some(vec!["U".to_string(), "T".to_string()]))
+            ]).unwrap();
+
+            // These should be equal due to symmetric equivalence and set ordering
+            assert_eq!(ind_a, ind_b, "Symmetric complex independencies should be equal");
+        }
+
+        #[test]
+        fn test_pgmpy_setup_variable_extraction() {
+            // Test the get_all_variables method with complex scenarios
+            let ind3 = create_independencies_3();
+            let ind4 = create_independencies_4(); 
+            let ind5 = create_independencies_5();
+
+            let vars3 = ind3.get_all_variables();
+            let vars4 = ind4.get_all_variables();
+            let vars5 = ind5.get_all_variables();
+
+            // All should contain the same variables
+            let expected_vars: HashSet<String> = set_from_vec(vec!["a", "b", "c", "d", "e", "f", "g", "h"]);
+            assert_eq!(vars3, expected_vars, "Independencies3 should have all expected variables");
+            assert_eq!(vars4, expected_vars, "Independencies4 should have all expected variables");
+
+            let expected_vars5: HashSet<String> = set_from_vec(vec!["a", "b", "c", "d", "e", "f", "g"]);
+            assert_eq!(vars5, expected_vars5, "Independencies5 should have subset of variables");
+        }
+
+        #[test]
+        fn test_bidirectional_equivalence_complex() {
+            // Test that equivalence is truly bidirectional in complex scenarios
+            let mut ind_x = Independencies::new();
+            ind_x.add_assertions_from_tuples(vec![
+                (vec!["A".to_string()], vec!["B".to_string(), "C".to_string()], Some(vec!["D".to_string()])),
+                (vec!["E".to_string()], vec!["F".to_string()], Some(vec!["G".to_string(), "H".to_string()]))
+            ]).unwrap();
+
+            let mut ind_y = Independencies::new();
+            ind_y.add_assertions_from_tuples(vec![
+                (vec!["A".to_string()], vec!["B".to_string()], Some(vec!["D".to_string()])),
+                (vec!["A".to_string()], vec!["C".to_string()], Some(vec!["D".to_string()])),
+                (vec!["E".to_string()], vec!["F".to_string()], Some(vec!["G".to_string(), "H".to_string()]))
+            ]).unwrap();
+
+            // Test that decomposition creates equivalence
+            assert!(ind_x.entails(&ind_y), "Complex independencies should entail their decomposition");
+            
+            // But decomposition might not entail the original (depending on axioms)
+            let reverse_entailment = ind_y.entails(&ind_x);
+            
+            // If they entail each other, they should be equivalent
+            if reverse_entailment {
+                assert!(ind_x.is_equivalent(&ind_y), "Bidirectional entailment should mean equivalence");
+                assert!(ind_y.is_equivalent(&ind_x), "Equivalence should be symmetric");
+            }
+        }
+    }
+
 }
