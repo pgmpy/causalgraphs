@@ -341,7 +341,7 @@ impl Independencies {
             .into_iter().collect();
         
         // Sort by event2 size (descending) to process more general assertions first
-        // unique_assertions.sort_by(|a, b| b.event2.len().cmp(&a.event2.len()));
+        unique_assertions.sort_by(|a, b| b.event2.len().cmp(&a.event2.len()));
         
         let mut reduced_assertions = Vec::new();
 
