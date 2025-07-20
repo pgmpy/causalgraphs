@@ -1,0 +1,370 @@
+#[cfg(test)]
+mod independence_tests {
+    use rust_core::IndependenceAssertion;
+
+    use super::*;
+    use std::collections::HashSet;
+
+    // Helper function to create HashSet from vector
+    fn set_from_vec(vec: Vec<&str>) -> HashSet<String> {
+        vec.into_iter().map(|s| s.to_string()).collect()
+    }
+
+    // Helper function to create IndependenceAssertion from strings
+    fn create_assertion(e1: Vec<&str>, e2: Vec<&str>, e3: Option<Vec<&str>>) -> IndependenceAssertion {
+        IndependenceAssertion::new(
+            set_from_vec(e1),
+            set_from_vec(e2),
+            e3.map(set_from_vec),
+        ).unwrap()
+    }
+
+    #[cfg(test)]
+    mod test_independence_assertion {
+        use rust_core::IndependenceAssertion;
+
+        use super::*;
+
+        #[test]
+        fn test_new_assertion() {
+            let assertion = IndependenceAssertion::new(
+                set_from_vec(vec!["U"]),
+                set_from_vec(vec!["V"]),
+                Some(set_from_vec(vec!["Z"])),
+            ).unwrap();
+            
+            assert_eq!(assertion.event1, set_from_vec(vec!["U"]));
+            assert_eq!(assertion.event2, set_from_vec(vec!["V"]));
+            assert_eq!(assertion.event3, set_from_vec(vec!["Z"]));
+        }
+
+        #[test]
+        fn test_assertion_with_multiple_variables() {
+            let assertion = IndependenceAssertion::new(
+                set_from_vec(vec!["U", "V"]),
+                set_from_vec(vec!["Y", "Z"]),
+                Some(set_from_vec(vec!["A", "B"])),
+            ).unwrap();
+            
+            assert_eq!(assertion.event1, set_from_vec(vec!["U", "V"]));
+            assert_eq!(assertion.event2, set_from_vec(vec!["Y", "Z"]));
+            assert_eq!(assertion.event3, set_from_vec(vec!["A", "B"]));
+        }
+
+        #[test]
+        fn test_assertion_without_conditioning() {
+            let assertion = IndependenceAssertion::new(
+                set_from_vec(vec!["U"]),
+                set_from_vec(vec!["V"]),
+                None
+            ).unwrap();
+            
+            assert_eq!(assertion.event1, set_from_vec(vec!["U"]));
+            assert_eq!(assertion.event2, set_from_vec(vec!["V"]));
+            assert!(assertion.event3.is_empty());
+            assert!(assertion.is_unconditional());
+        }
+
+        #[test]
+        fn test_assertion_validation_errors() {
+            // event1 empty should fail
+            let result = IndependenceAssertion::new(
+                HashSet::new(),
+                set_from_vec(vec!["V"]),
+                None,
+            );
+            assert!(result.is_err());
+
+            // event2 empty should fail
+            let result = IndependenceAssertion::new(
+                set_from_vec(vec!["U"]),
+                HashSet::new(),
+                None,
+            );
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_all_variables() {
+            let assertion = create_assertion(
+                vec!["A", "B"],
+                vec!["C"],
+                Some(vec!["D", "E"]),
+            );
+            
+            let expected_vars = set_from_vec(vec!["A", "B", "C", "D", "E"]);
+            assert_eq!(assertion.all_vars, expected_vars);
+        }
+
+        #[test]
+        fn test_display_formatting() {
+            let assertion1 = create_assertion(vec!["X"], vec!["Y"], None);
+            assert_eq!(format!("{}", assertion1), "(X ⊥ Y)");
+
+            let assertion2 = create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"]));
+            assert!(format!("{}", assertion2).contains("⊥") && format!("{}", assertion2).contains("|"));
+        }
+
+        #[test]
+        fn test_latex_formatting() {
+            let assertion1 = create_assertion(vec!["X"], vec!["Y"], None);
+            assert_eq!(assertion1.to_latex(), "X \\perp Y");
+
+            let assertion2 = create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"]));
+            assert_eq!(assertion2.to_latex(), "X \\perp Y \\mid Z");
+        }
+    }
+
+    #[cfg(test)]
+    mod test_independence_assertion_equality {
+        use super::*;
+
+        #[test]
+        fn test_equality_basic() {
+            let i1 = create_assertion(vec!["a"], vec!["b"], Some(vec!["c"]));
+            let i2 = create_assertion(vec!["a"], vec!["b"], None);
+            let i3 = create_assertion(vec!["a"], vec!["b", "c", "d"], None);
+            
+            assert_ne!(i1, i2);
+            assert_ne!(i1, i3);
+            assert_ne!(i2, i3);
+        }
+
+        #[test]
+        fn test_equality_symmetry() {
+            let i4 = create_assertion(vec!["a"], vec!["b", "c", "d"], Some(vec!["e"]));
+            let i5 = create_assertion(vec!["a"], vec!["d", "c", "b"], Some(vec!["e"]));
+            
+            // Order shouldn't matter for sets
+            assert_eq!(i4, i5);
+        }
+
+        #[test]
+        fn test_equality_with_swapped_events() {
+            // Test symmetry: X ⊥ Y | Z should equal Y ⊥ X | Z
+            let i9 = create_assertion(vec!["a"], vec!["d", "k", "b"], Some(vec!["e"]));
+            let i10 = create_assertion(vec!["k", "b", "d"], vec!["a"], Some(vec!["e"]));
+            
+            assert_eq!(i9, i10); // Should be equal due to symmetry
+        }
+
+        #[test]
+        fn test_inequality_different_conditioning() {
+            let i6 = create_assertion(vec!["a"], vec!["d", "c"], Some(vec!["e", "b"]));
+            let i7 = create_assertion(vec!["a"], vec!["c", "d"], Some(vec!["b", "e"]));
+            let i8 = create_assertion(vec!["a"], vec!["f", "d"], Some(vec!["b", "e"]));
+            
+            assert_eq!(i6, i7); // Same conditioning set, different order
+            assert_ne!(i7, i8); // Different variables
+        }
+    }
+
+    #[cfg(test)]
+    mod test_independencies_collection {
+        use rust_core::Independencies;
+
+        use super::*;
+
+        #[test]
+        fn test_empty_independencies() {
+            let independencies = Independencies::new();
+            assert_eq!(independencies.get_assertions().len(), 0);
+            assert_eq!(independencies.get_all_variables().len(), 0);
+        }
+
+        #[test]
+        fn test_add_assertion() {
+            let mut independencies = Independencies::new();
+            let assertion = create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"]));
+            
+            independencies.add_assertion(assertion.clone());
+            assert_eq!(independencies.get_assertions().len(), 1);
+            assert!(independencies.contains(&assertion));
+        }
+
+        #[test]
+        fn test_get_all_variables() {
+            let mut independencies = Independencies::new();
+            independencies.add_assertion(create_assertion(
+                vec!["a"], vec!["b", "c", "d"], Some(vec!["e", "f", "g"])
+            ));
+            independencies.add_assertion(create_assertion(
+                vec!["c"], vec!["d", "e", "f"], Some(vec!["g", "h"])
+            ));
+
+            let expected_vars = set_from_vec(vec!["a", "b", "c", "d", "e", "f", "g", "h"]);
+            assert_eq!(independencies.get_all_variables(), expected_vars);
+        }
+
+        #[test]
+        fn test_independencies_equality() {
+            let mut ind1 = Independencies::new();
+            ind1.add_assertion(create_assertion(
+                vec!["a"], vec!["b", "c", "d"], Some(vec!["e", "f", "g"])
+            ));
+
+            let mut ind2 = Independencies::new();
+            ind2.add_assertion(create_assertion(
+                vec!["a"], vec!["b", "c", "d"], Some(vec!["e", "f", "g"])
+            ));
+
+            assert_eq!(ind1, ind2);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_closure_and_entailment {
+        use rust_core::Independencies;
+
+        use super::*;
+
+        #[test]
+        fn test_simple_closure() {
+            let mut ind = Independencies::new();
+            ind.add_assertion(create_assertion(
+                vec!["A"], vec!["B", "C"], Some(vec!["D"])
+            ));
+
+            let closure = ind.closure();
+            let closure_assertions = closure.get_assertions();
+            
+            // Should contain original assertion
+            assert!(closure_assertions.len() >= 1);
+            
+            // Should contain decompositions: A ⊥ B | D and A ⊥ C | D
+            let decomp1 = create_assertion(vec!["A"], vec!["B"], Some(vec!["D"]));
+            let decomp2 = create_assertion(vec!["A"], vec!["C"], Some(vec!["D"]));
+            
+            assert!(closure.contains(&decomp1) || 
+                   closure_assertions.iter().any(|a| a.event1 == decomp1.event1 && 
+                                                   a.event2 == decomp1.event2 && 
+                                                   a.event3 == decomp1.event3));
+        }
+
+        #[test]
+        fn test_entailment() {
+            let mut ind1 = Independencies::new();
+            ind1.add_assertion(create_assertion(
+                vec!["W"], vec!["X", "Y", "Z"], None
+            ));
+
+            let mut ind2 = Independencies::new();
+            ind2.add_assertion(create_assertion(vec!["W"], vec!["X"], None));
+
+            // W ⊥ X,Y,Z should entail W ⊥ X
+            assert!(ind1.entails(&ind2));
+            assert!(!ind2.entails(&ind1));
+        }
+
+        #[test]
+        fn test_equivalence() {
+            let mut ind1 = Independencies::new();
+            ind1.add_assertion(create_assertion(
+                vec!["X"], vec!["Y", "W"], Some(vec!["Z"])
+            ));
+
+            let mut ind2 = Independencies::new();
+            ind2.add_assertion(create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"])));
+            ind2.add_assertion(create_assertion(vec!["X"], vec!["W"], Some(vec!["Z"])));
+
+            // These should be equivalent
+            assert!(ind1.is_equivalent(&ind2));
+        }
+    }
+
+    #[cfg(test)]
+    mod test_reduce_method {
+        use rust_core::Independencies;
+
+        use super::*;
+
+        #[test]
+        fn test_reduce_duplicates() {
+            let mut ind = Independencies::new();
+            let assertion = create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"]));
+            
+            // Add the same assertion twice
+            ind.add_assertion(assertion.clone());
+            ind.add_assertion(assertion.clone());
+            
+            let reduced = ind.reduce();
+            assert_eq!(reduced.get_assertions().len(), 1);
+        }
+
+        #[test]
+        fn test_reduce_entailment() {
+            let mut ind = Independencies::new();
+            
+            // More general assertion
+            ind.add_assertion(create_assertion(
+                vec!["W"], vec!["X", "Y", "Z"], None
+            ));
+            // More specific assertion (should be removed)
+            ind.add_assertion(create_assertion(vec!["W"], vec!["X"], None));
+
+            let reduced = ind.reduce();
+            assert_eq!(reduced.get_assertions().len(), 1);
+            
+            // Should keep the more general assertion
+            let general = create_assertion(vec!["W"], vec!["X", "Y", "Z"], None);
+            assert!(reduced.contains(&general));
+        }
+
+        #[test]
+        fn test_reduce_independent_assertions() {
+            let mut ind = Independencies::new();
+            ind.add_assertion(create_assertion(vec!["A"], vec!["B"], Some(vec!["C"])));
+            ind.add_assertion(create_assertion(vec!["D"], vec!["E"], Some(vec!["F"])));
+
+            let reduced = ind.reduce();
+            assert_eq!(reduced.get_assertions().len(), 2);
+        }
+
+        #[test]
+        fn test_reduce_inplace() {
+            let mut ind = Independencies::new();
+            let assertion = create_assertion(vec!["X"], vec!["Y"], Some(vec!["Z"]));
+            
+            ind.add_assertion(assertion.clone());
+            ind.add_assertion(assertion.clone());
+            ind.add_assertion(create_assertion(vec!["A"], vec!["B"], Some(vec!["C"])));
+            
+            let original_len = ind.get_assertions().len();
+            ind.reduce_inplace();
+            
+            assert_ne!(original_len, ind.get_assertions().len());
+            assert_eq!(ind.get_assertions().len(), 2); // Should have 2 unique assertions
+        }
+
+        #[test]
+        fn test_reduce_empty() {
+            let ind = Independencies::new();
+            let reduced = ind.reduce();
+            assert_eq!(reduced.get_assertions().len(), 0);
+        }
+
+        #[test]
+        fn test_reduce_complex_case() {
+            let mut ind = Independencies::new();
+            
+            // General assertion that entails the specific ones
+            ind.add_assertion(create_assertion(
+                vec!["A"], vec!["B", "C"], Some(vec!["D"])
+            ));
+            // Specific assertions that should be removed
+            ind.add_assertion(create_assertion(vec!["A"], vec!["B"], Some(vec!["D"])));
+            ind.add_assertion(create_assertion(vec!["A"], vec!["C"], Some(vec!["D"])));
+            // Independent assertion
+            ind.add_assertion(create_assertion(vec!["E"], vec!["F"], Some(vec!["G"])));
+
+            let reduced = ind.reduce();
+            assert_eq!(reduced.get_assertions().len(), 2);
+            
+            let general = create_assertion(vec!["A"], vec!["B", "C"], Some(vec!["D"]));
+            let independent = create_assertion(vec!["E"], vec!["F"], Some(vec!["G"]));
+            
+            assert!(reduced.contains(&general));
+            assert!(reduced.contains(&independent));
+        }
+    }
+}
