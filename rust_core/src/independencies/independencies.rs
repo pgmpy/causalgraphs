@@ -151,19 +151,24 @@ impl Independencies {
         let mut all_independencies: HashSet<IndependenceAssertion> = HashSet::new();
         let mut new_inds: HashSet<IndependenceAssertion> = self.assertions.iter().cloned().collect();
 
+        // Example: Start with {A ⊥ B,C | D}
+        // Iteration 1: SG1 generates {A ⊥ B | D, A ⊥ C | D}
+        // Iteration 2: SG2 generates {A ⊥ B | C,D, A ⊥ C | B,D} 
+        // Iteration 3: SG3 might combine pairs, continues until no new assertions
         while !new_inds.is_empty() {
             // Add current new independencies to the complete set
             all_independencies.extend(new_inds.iter().cloned());
             
             let mut next_round = HashSet::new();
             
-            // Apply decomposition and weak union to all new independencies
+            // Apply unary axioms (SG1, SG2) to each new assertion individually
             for ind in &new_inds {
                 next_round.extend(self.sg1_decomposition(ind));
                 next_round.extend(self.sg2_weak_union(ind));
             }
             
-            // Apply contraction rule to all pairs
+            // Apply binary axiom (SG3) to all pairs - this is the expensive O(n²) part
+            // Example: {A ⊥ B | D} + {A ⊥ C | D} → {A ⊥ B,C | D} via contraction
             // We need to check new × new, new × all, and all × new pairs
             let all_current: Vec<IndependenceAssertion> = all_independencies.iter().cloned().collect();
             let new_current: Vec<IndependenceAssertion> = new_inds.iter().cloned().collect();
@@ -193,7 +198,6 @@ impl Independencies {
 
         Self::from_assertions(all_independencies.into_iter().collect())
     }
-
     
     /// Decomposition rule: 'X ⊥ Y,W | Z' -> 'X ⊥ Y | Z', 'X ⊥ W | Z'
     fn sg1_decomposition(&self, ind: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
@@ -201,9 +205,9 @@ impl Independencies {
             return vec![];
         }
         
-        let mut results = Vec::new();
+        let mut results: Vec<IndependenceAssertion> = Vec::new();
         for elem in &ind.event2 {
-            let mut new_event2 = ind.event2.clone();
+            let mut new_event2: HashSet<String> = ind.event2.clone();
             new_event2.remove(elem);
             
             if let Ok(assertion) = IndependenceAssertion::new(
@@ -307,11 +311,13 @@ impl Independencies {
     }
 
     fn try_standard_contraction(&self, larger: &IndependenceAssertion, smaller: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
-        let y = &smaller.event2;
-        let z = &smaller.event3;
-        let y_z = &larger.event3;
+        let y = &smaller.event2; // Variables we're independent from in smaller assertion
+        let z = &smaller.event3; // What we condition on in smaller assertion  
+        let y_z = &larger.event3; // What we condition on in larger assertion
         
-        // Check if larger condition is Y ∪ Z
+        // Check if larger conditions on exactly Y∪Z and Y∩Z = ∅
+        // Example: smaller = {A ⊥ C | D}, larger = {A ⊥ B | C,D} 
+        // Here: y={C}, z={D}, y_z={C,D}, y∪z={C,D} ✓, y∩z=∅ ✓
         let y_union_z: HashSet<String> = y.union(z).cloned().collect();
         if y_union_z == *y_z && y.is_disjoint(z) {
             let mut new_event2 = larger.event2.clone();
@@ -337,10 +343,11 @@ impl Independencies {
         let mut reduced_assertions = Vec::new();
 
         for assertion in unique_assertions {
-            let temp_independencies = Self::from_assertions(reduced_assertions.clone());
-            let assertion_temp = Self::from_assertions(vec![assertion.clone()]);
+            let temp_independencies: Independencies = Self::from_assertions(reduced_assertions.clone());
+            let new_assertion: Independencies = Self::from_assertions(vec![assertion.clone()]);
 
-            if !temp_independencies.entails(&assertion_temp) {
+            // Check if the current new assertion is already entailed by the reduced set, meaning if it doesn't add new information
+            if !temp_independencies.entails(&new_assertion) {
                 let mut removed_any = true;
                 while removed_any {
                     removed_any = false;
@@ -348,9 +355,13 @@ impl Independencies {
                     while i < reduced_assertions.len() {
                         let existing_temp = Self::from_assertions(vec![reduced_assertions[i].clone()]);
                         
-                        if existing_temp != assertion_temp {
-                            let remove_old = !existing_temp.entails(&assertion_temp) && 
-                                           assertion_temp.entails(&existing_temp);
+                        if existing_temp != new_assertion {
+                            // Old assertion: A ⊥ B | D (existing in reduced_assertions) & New assertion: A ⊥ B,C | D (being added)
+                            // Does A ⊥ B | D entail A ⊥ B,C | D? NO (specific doesn't imply general)
+                            // Does A ⊥ B,C | D entail A ⊥ B | D? YES (via SG1 decomposition)
+                            // Result: Remove the old assertion since the new one contains all its information plus more
+                            let remove_old = !existing_temp.entails(&new_assertion) && 
+                                           new_assertion.entails(&existing_temp);
                             
                             if remove_old {
                                 reduced_assertions.remove(i);

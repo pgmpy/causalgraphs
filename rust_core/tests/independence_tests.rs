@@ -242,6 +242,21 @@ mod independence_tests {
         }
 
         #[test]
+        fn test_complex_closure() {
+            let mut ind = Independencies::new();
+            ind.add_assertion(create_assertion(
+                vec!["A"], vec!["B", "C", "D"], Some(vec!["E"])
+            ));
+
+            let closure = ind.closure();
+            let closure_assertions= closure.get_assertions();
+
+            assert!(closure_assertions.len() == 19);
+        }
+
+                
+
+        #[test]
         fn test_entailment() {
             let mut ind1 = Independencies::new();
             ind1.add_assertion(create_assertion(
@@ -312,11 +327,11 @@ mod independence_tests {
 
         #[test]
         fn test_reduce_independent_assertions() {
-            let mut ind = Independencies::new();
+            let mut ind: Independencies = Independencies::new();
             ind.add_assertion(create_assertion(vec!["A"], vec!["B"], Some(vec!["C"])));
             ind.add_assertion(create_assertion(vec!["D"], vec!["E"], Some(vec!["F"])));
 
-            let reduced = ind.reduce();
+            let reduced: Independencies = ind.reduce();
             assert_eq!(reduced.get_assertions().len(), 2);
         }
 
