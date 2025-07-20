@@ -145,10 +145,15 @@ impl RustDAG {
 
     pub fn active_trail_nodes(&self, variables: Vec<String>, observed: Option<Vec<String>>, include_latents: bool) -> Result<HashMap<String, HashSet<String>>, String> {
         let observed_list: HashSet<String> = observed.unwrap_or_default().into_iter().collect();
+        // Precompute ancestors of observed nodes (needed for collider rule)
+        // Example: If C is observed in A→B←C→D, ancestors_list = {A, B, C}
         let ancestors_list: HashSet<String> = self.get_ancestors_of(observed_list.iter().cloned().collect())?;
 
         let mut active_trails: HashMap<String, HashSet<String>> = HashMap::new();
+        // For each starting variable, find all nodes reachable via active trails
         for start in variables {
+            // BFS with direction tracking: (node, direction_of_arrival)
+            // "up" = coming from child toward parents, "down" = coming from parent toward children
             let mut visit_list: HashSet<(String, &str)> = HashSet::new();
             let mut traversed_list: HashSet<(String, &str)> = HashSet::new();
             let mut active_nodes: HashSet<String> = HashSet::new();
@@ -161,19 +166,24 @@ impl RustDAG {
             while let Some((node, direction)) = visit_list.iter().next().map(|x| x.clone()) {
                 visit_list.remove(&(node.clone(), direction));
                 if !traversed_list.contains(&(node.clone(), direction)) {
+                    // Add to active trail if not observed (observed nodes block but aren't "reachable")
                     if !observed_list.contains(&node) {
                         active_nodes.insert(node.clone());
                     }
                     traversed_list.insert((node.clone(), direction));
 
+                    // If arriving "up" at unobserved B, can continue to parents and switch to children
                     if direction == "up" && !observed_list.contains(&node) {
                         for parent in self.get_parents(&node)? {
-                            visit_list.insert((parent, "up"));
+                            visit_list.insert((parent, "up")); // Continue up the chain
                         }
                         for child in self.get_children(&node)? {
-                            visit_list.insert((child, "down"));
+                            visit_list.insert((child, "down")); // Switch direction
                         }
-                    } else if direction == "down" {
+                    } 
+
+                    // If arriving "down", can continue down if unobserved, or go up if it's a collider
+                    else if direction == "down" {
                         if !observed_list.contains(&node) {
                             for child in self.get_children(&node)? {
                                 visit_list.insert((child, "down"));
@@ -210,18 +220,25 @@ impl RustDAG {
         end: &str, 
         include_latents: bool
     ) -> Result<Option<HashSet<String>>, String> {
+        // Example: For DAG A→B←C, B→D, trying to separate A and C
+        // Adjacent nodes can't be separated by any conditioning set
         if self.has_edge(start, end) || self.has_edge(end, start) {
             return Err("No possible separators because start and end are adjacent".to_string());
         }
 
-        // Create proper ancestral graph
+        // Create ancestral graph containing only ancestors of start and end
+        // Example: For separating A and D in A→B←C, B→D, ancestral graph = {A, B, C, D}
         let ancestral_graph = self.get_ancestral_graph(vec![start.to_string(), end.to_string()])?;
         
+        // Initial separator: all parents of both nodes (theoretical upper bound)
+        // Example: parents(A)={} ∪ parents(D)={B} → separator = {B}
         let mut separator: HashSet<String> = self.get_parents(start)?
             .into_iter()
             .chain(self.get_parents(end)?.into_iter())
             .collect();
 
+        // Replace latent variables with their observable parents
+        // Example: If B were latent with parent L, replace B with L in separator
         if !include_latents {
             let mut changed = true;
             while changed {
@@ -243,11 +260,13 @@ impl RustDAG {
         separator.remove(start);
         separator.remove(end);
 
-        // If the initial set is not able to d-separate, no d-separator is possible.
+        // Sanity check: if our "guaranteed" separator doesn't work, no separator exists
         if ancestral_graph.is_dconnected(start, end, Some(separator.iter().cloned().collect()), include_latents)? {
             return Ok(None);
         }
 
+        // Greedy minimization: remove each node if separation still holds without it
+        // Example: If separator = {B, C} but {B} alone separates A from D, remove C
         let mut minimal_separator = separator.clone();
         for u in separator {
             let test_separator: Vec<String> = minimal_separator.iter().cloned().filter(|x| x != &u).collect();
