@@ -98,7 +98,6 @@ impl PartialEq for IndependenceAssertion {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Independencies {
     assertions: Vec<IndependenceAssertion>,
@@ -150,86 +149,103 @@ impl Independencies {
     pub fn closure(&self) -> Self {
         let mut all_independencies: HashSet<IndependenceAssertion> = HashSet::new();
         let mut new_inds: HashSet<IndependenceAssertion> = self.assertions.iter().cloned().collect();
-
+        
         // Example: Start with {A ⊥ B,C | D}
         // Iteration 1: SG1 generates {A ⊥ B | D, A ⊥ C | D}
         // Iteration 2: SG2 generates {A ⊥ B | C,D, A ⊥ C | B,D} 
         // Iteration 3: SG3 might combine pairs, continues until no new assertions
         while !new_inds.is_empty() {
-            // Add current new independencies to the complete set
-            all_independencies.extend(new_inds.iter().cloned());
-            
+            // Do Collect pairs for SG3 before modifying all_independencies
+            let mut new_pairs: HashSet<(&IndependenceAssertion, &IndependenceAssertion)> = HashSet::new();
+            let all_current: Vec<IndependenceAssertion> = all_independencies.iter().cloned().collect();
+            let new_current: Vec<IndependenceAssertion> = new_inds.iter().cloned().collect();
             let mut next_round = HashSet::new();
             
-            // Apply unary axioms (SG1, SG2) to each new assertion individually
+            // Apply unary axioms (SG1, SG2) to each new assertion
             for ind in &new_inds {
                 next_round.extend(self.sg1_decomposition(ind));
                 next_round.extend(self.sg2_weak_union(ind));
             }
-            
-            // Apply binary axiom (SG3) to all pairs - this is the expensive O(n²) part
+
+            // Apply binary axiom (SG3) to all pairs
             // Example: {A ⊥ B | D} + {A ⊥ C | D} → {A ⊥ B,C | D} via contraction
-            // We need to check new × new, new × all, and all × new pairs
-            let all_current: Vec<IndependenceAssertion> = all_independencies.iter().cloned().collect();
-            let new_current: Vec<IndependenceAssertion> = new_inds.iter().cloned().collect();
+            // We need to check new × new, new × all
             
             // new × new pairs
             for i in 0..new_current.len() {
-                for j in i..new_current.len() {
-                    next_round.extend(self.sg3_contraction(&new_current[i], &new_current[j]));
-                    if i != j {
-                        next_round.extend(self.sg3_contraction(&new_current[j], &new_current[i]));
-                    }
+                for j in (i+1)..new_current.len() {
+                    new_pairs.insert((&new_current[i], &new_current[j]));
+                    new_pairs.insert((&new_current[j], &new_current[i]));
                 }
             }
-            
+
             // new × all pairs  
             for new_ind in &new_current {
                 for all_ind in &all_current {
-                    next_round.extend(self.sg3_contraction(new_ind, all_ind));
-                    next_round.extend(self.sg3_contraction(all_ind, new_ind));
+                    new_pairs.insert((new_ind, all_ind));
+                    new_pairs.insert((all_ind, new_ind));
                 }
             }
             
+            // Add current new independencies to the complete set
+            all_independencies.extend(new_inds.iter().cloned());
+            
+            // Apply the Binary axiom
+            for (ind1, ind2) in new_pairs {
+                next_round.extend(self.sg3_contraction(ind1, ind2));
+            }
+            
             // Remove already known assertions
-            next_round.retain(|ind| !all_independencies.contains(ind));
+            // After applying axioms
+            next_round.retain(|ind| !ind.event1.is_empty() && !ind.event2.is_empty() && !all_independencies.contains(ind));
             new_inds = next_round;
         }
 
         Self::from_assertions(all_independencies.into_iter().collect())
     }
+
+
+    fn sg0(&self, ind: &IndependenceAssertion) -> IndependenceAssertion {
+        IndependenceAssertion::new(
+            ind.event2.clone(),
+            ind.event1.clone(),
+            if ind.event3.is_empty() { None } else { Some(ind.event3.clone()) },
+        ).unwrap()  // Assuming it succeeds
+    }
     
     /// Decomposition rule: 'X ⊥ Y,W | Z' -> 'X ⊥ Y | Z', 'X ⊥ W | Z'
     fn sg1_decomposition(&self, ind: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
-        if ind.event2.len() <= 1 {
-            return vec![];
-        }
+        let mut results = Vec::new();
         
-        let mut results: Vec<IndependenceAssertion> = Vec::new();
-        for elem in &ind.event2 {
-            let mut new_event2: HashSet<String> = ind.event2.clone();
-            new_event2.remove(elem);
-            
-            if let Ok(assertion) = IndependenceAssertion::new(
-                ind.event1.clone(),
-                new_event2,
-                Some(ind.event3.clone()),
-            ) {
-                results.push(assertion);
+        // Decompose event2 if it has multiple elements
+        if ind.event2.len() > 1 {
+            for elem in &ind.event2 {
+                // Create single-element set for this variable
+                let single_var: HashSet<String> = [elem.clone()].into_iter().collect();
+                
+                if let Ok(assertion) = IndependenceAssertion::new(
+                    ind.event1.clone(),
+                    single_var,
+                    Some(ind.event3.clone()),
+                ) {
+                    results.push(assertion);
+                }
             }
         }
         
-        // Apply symmetry
-        for elem in &ind.event1 {
-            let mut new_event1 = ind.event1.clone();
-            new_event1.remove(elem);
-            
-            if let Ok(assertion) = IndependenceAssertion::new(
-                new_event1,
-                ind.event2.clone(),
-                Some(ind.event3.clone()),
-            ) {
-                results.push(assertion);
+        // Decompose event1 if it has multiple elements (symmetry)
+        if ind.event1.len() > 1 {
+            for elem in &ind.event1 {
+                // Create single-element set for this variable
+                let single_var: HashSet<String> = [elem.clone()].into_iter().collect();
+                
+                if let Ok(assertion) = IndependenceAssertion::new(
+                    single_var,
+                    ind.event2.clone(),
+                    Some(ind.event3.clone()),
+                ) {
+                    results.push(assertion);
+                }
             }
         }
         
@@ -238,39 +254,41 @@ impl Independencies {
     
     /// Weak Union rule: 'X ⊥ Y,W | Z' -> 'X ⊥ Y | W,Z', 'X ⊥ W | Y,Z'
     fn sg2_weak_union(&self, ind: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
-        if ind.event2.len() <= 1 {
-            return vec![];
-        }
-        
         let mut results = Vec::new();
-        for elem in &ind.event2 {
-            let mut new_event2 = ind.event2.clone();
-            new_event2.remove(elem);
-            let mut new_event3 = ind.event3.clone();
-            new_event3.insert(elem.clone());
-            
-            if let Ok(assertion) = IndependenceAssertion::new(
-                ind.event1.clone(),
-                new_event2,
-                Some(new_event3),
-            ) {
-                results.push(assertion);
+        
+        // For each variable in event2, move it to the conditioning set
+        if ind.event2.len() > 1 {
+            for elem in &ind.event2 {
+                let mut new_event2 = ind.event2.clone();
+                new_event2.remove(elem);
+                let mut new_event3 = ind.event3.clone();
+                new_event3.insert(elem.clone());
+                
+                if let Ok(assertion) = IndependenceAssertion::new(
+                    ind.event1.clone(),
+                    new_event2,
+                    Some(new_event3),
+                ) {
+                    results.push(assertion);
+                }
             }
         }
         
-        // Apply symmetry for event1
-        for elem in &ind.event1 {
-            let mut new_event1 = ind.event1.clone();
-            new_event1.remove(elem);
-            let mut new_event3 = ind.event3.clone();
-            new_event3.insert(elem.clone());
-            
-            if let Ok(assertion) = IndependenceAssertion::new(
-                new_event1,
-                ind.event2.clone(),
-                Some(new_event3),
-            ) {
-                results.push(assertion);
+        // For each variable in event1, move it to the conditioning set (symmetry)
+        if ind.event1.len() > 1 {
+            for elem in &ind.event1 {
+                let mut new_event1 = ind.event1.clone();
+                new_event1.remove(elem);
+                let mut new_event3 = ind.event3.clone();
+                new_event3.insert(elem.clone());
+                
+                if let Ok(assertion) = IndependenceAssertion::new(
+                    new_event1,
+                    ind.event2.clone(),
+                    Some(new_event3),
+                ) {
+                    results.push(assertion);
+                }
             }
         }
         
@@ -280,24 +298,50 @@ impl Independencies {
     /// Contraction rule: 'X ⊥ W | Y,Z' & 'X ⊥ Y | Z' -> 'X ⊥ W,Y | Z'
     fn sg3_contraction(&self, ind1: &IndependenceAssertion, ind2: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
         let mut results = Vec::new();
-        
-        // Standard contraction rule cases (try both directions)
-        results.extend(self.try_standard_contraction(ind1, ind2));
-        results.extend(self.try_standard_contraction(ind2, ind1));
-        
-        results
+
+        // Original pair
+        results.extend(self.try_contraction_all_sym(ind1, ind2));
+
+        // ind1 original, ind2 symmetric
+        let ind2_sym = self.sg0(ind2);
+        results.extend(self.try_contraction_all_sym(ind1, &ind2_sym));
+
+        // ind1 symmetric, ind2 original
+        let ind1_sym = self.sg0(ind1);
+        results.extend(self.try_contraction_all_sym(&ind1_sym, ind2));
+
+        // Both symmetric
+        results.extend(self.try_contraction_all_sym(&ind1_sym, &ind2_sym));
+
+        let unique_results: HashSet<IndependenceAssertion> = results.into_iter().collect();
+        unique_results.into_iter().collect()
     }
 
-    fn try_standard_contraction(&self, larger: &IndependenceAssertion, smaller: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
-        let y = &smaller.event2; // Variables we're independent from in smaller assertion
-        let z = &smaller.event3; // What we condition on in smaller assertion  
-        let y_z = &larger.event3; // What we condition on in larger assertion
+    fn try_contraction_all_sym(&self, larger: &IndependenceAssertion, smaller: &IndependenceAssertion) -> Vec<IndependenceAssertion> {
+        let mut res = Vec::new();
+        if let Some(contracted) = self.try_contraction(larger, smaller) {
+            res.push(contracted);
+        }
+        if let Some(contracted) = self.try_contraction(smaller, larger) {  // Try both orders
+            res.push(contracted);
+        }
+        res
+    }
+
+    fn try_contraction(&self, larger: &IndependenceAssertion, smaller: &IndependenceAssertion) -> Option<IndependenceAssertion> {
+        if larger.event1 != smaller.event1 {
+            return None;
+        }
         
-        // Check if larger conditions on exactly Y∪Z and Y∩Z = ∅
-        // Example: smaller = {A ⊥ C | D}, larger = {A ⊥ B | C,D} 
-        // Here: y={C}, z={D}, y_z={C,D}, y∪z={C,D} ✓, y∩z=∅ ✓
-        let y_union_z: HashSet<String> = y.union(z).cloned().collect();
-        if y_union_z == *y_z && y.is_disjoint(z) {
+        let y: &HashSet<String> = &smaller.event2;
+        let z: &HashSet<String> = &smaller.event3;
+        let y_z: &HashSet<String> = &larger.event3;
+        
+        // Use proper subset: subset and not equal
+        if y.is_subset(y_z) && *y != *y_z &&
+        z.is_subset(y_z) && *z != *y_z &&
+        y.is_disjoint(z) && !y.is_empty() && !z.is_empty() {
+            // Create new assertion: X ⊥ W,Y | Z
             let mut new_event2 = larger.event2.clone();
             new_event2.extend(y.iter().cloned());
             
@@ -306,12 +350,14 @@ impl Independencies {
                 new_event2,
                 if z.is_empty() { None } else { Some(z.clone()) },
             ) {
-                return vec![assertion];
+                return Some(assertion);
             }
         }
         
-        vec![]
+        None
     }
+
+
 
     pub fn reduce(&self) -> Self {
         let mut unique_assertions: Vec<IndependenceAssertion> = 
@@ -321,7 +367,7 @@ impl Independencies {
         // Sort by event2 size (descending) to process more general assertions first
         unique_assertions.sort_by(|a, b| b.event2.len().cmp(&a.event2.len()));
         
-        let mut reduced_assertions = Vec::new();
+        let mut reduced_assertions: Vec<IndependenceAssertion> = Vec::new();
 
         for assertion in unique_assertions {
             let temp_independencies: Independencies = Self::from_assertions(reduced_assertions.clone());
@@ -330,7 +376,7 @@ impl Independencies {
             // Only add if not entailed by current reduced set
             if !temp_independencies.entails(&new_assertion) {
                 // Remove any existing assertions that are entailed by the new assertion
-                reduced_assertions.retain(|existing| {
+                reduced_assertions.retain(|existing: &IndependenceAssertion| {
                     let existing_temp = Self::from_assertions(vec![existing.clone()]);
                     !new_assertion.entails(&existing_temp)
                 });

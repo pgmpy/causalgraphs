@@ -536,6 +536,27 @@ mod independence_tests {
                 assert!(ind_y.is_equivalent(&ind_x), "Equivalence should be symmetric");
             }
         }
+
+        #[test]
+        fn test_pgmpy_closure_large_case() {
+            use rust_core::Independencies;
+
+            let mut ind3 = Independencies::new();
+            ind3.add_assertions_from_tuples(vec![
+                (vec!["c".to_string()], vec!["a".to_string()], Some(vec!["b".to_string(), "e".to_string(), "d".to_string()])),
+                (vec!["e".to_string(), "c".to_string()], vec!["b".to_string()], Some(vec!["a".to_string(), "d".to_string()])),
+                (vec!["b".to_string(), "d".to_string()], vec!["e".to_string()], Some(vec!["a".to_string()])),
+                (vec!["e".to_string()], vec!["b".to_string(), "d".to_string()], Some(vec!["c".to_string()])),
+                (vec!["e".to_string()], vec!["b".to_string(), "c".to_string()], Some(vec!["d".to_string()])),
+                (vec!["e".to_string(), "c".to_string()], vec!["a".to_string()], Some(vec!["b".to_string()])),
+            ]).unwrap();
+
+            let closure = ind3.closure();
+            for assertion in closure.get_assertions() {
+                println!("{} ", assertion.to_string());
+            }
+            assert_eq!(closure.get_assertions().len(), 78);
+        }
     }
 
 }
