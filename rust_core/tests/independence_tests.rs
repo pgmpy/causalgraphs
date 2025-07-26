@@ -373,32 +373,50 @@ mod independence_tests {
         use super::*;
         use rust_core::Independencies;
 
+
+        // Helper function to create a HashSet<String> from a Vec<&str>
+        fn s_set(vars: Vec<&str>) -> HashSet<String> {
+            vars.into_iter().map(|s| s.to_string()).collect()
+        }
+
+        // Helper function to create an IndependenceAssertion from string slices
+        fn create_ia(e1: Vec<&str>, e2: Vec<&str>, e3: Option<Vec<&str>>) -> IndependenceAssertion {
+            IndependenceAssertion::new(
+                s_set(e1),
+                s_set(e2),
+                e3.map(s_set),
+            ).unwrap() // Using unwrap() here since test data is controlled and expected to be valid
+        }
+
+        // Helper function to create Independencies from a list of IndependenceAssertion
+        fn create_independencies(assertions: Vec<IndependenceAssertion>) -> Independencies {
+            let mut ind = Independencies::new();
+            for assertion in assertions {
+                ind.add_assertion(assertion);
+            }
+            ind
+        }
+
         // Helper to create complex Independencies matching PGMPY patterns
         fn create_independencies_3() -> Independencies {
-            let mut ind = Independencies::new();
-            ind.add_assertions_from_tuples(vec![
-                (vec!["a".to_string()], vec!["b".to_string(), "c".to_string(), "d".to_string()], Some(vec!["e".to_string(), "f".to_string(), "g".to_string()])),
-                (vec!["c".to_string()], vec!["d".to_string(), "e".to_string(), "f".to_string()], Some(vec!["g".to_string(), "h".to_string()]))
-            ]).unwrap();
-            ind
+            create_independencies(vec![
+                create_ia(vec!["a"], vec!["b", "c", "d"], Some(vec!["e", "f", "g"])),
+                create_ia(vec!["c"], vec!["d", "e", "f"], Some(vec!["g", "h"])),
+            ])
         }
 
         fn create_independencies_4() -> Independencies {
-            let mut ind = Independencies::new();
-            ind.add_assertions_from_tuples(vec![
-                (vec!["f".to_string(), "d".to_string(), "e".to_string()], vec!["c".to_string()], Some(vec!["h".to_string(), "g".to_string()])),
-                (vec!["b".to_string(), "c".to_string(), "d".to_string()], vec!["a".to_string()], Some(vec!["f".to_string(), "g".to_string(), "e".to_string()]))
-            ]).unwrap();
-            ind
+            create_independencies(vec![
+                create_ia(vec!["f", "d", "e"], vec!["c"], Some(vec!["h", "g"])),
+                create_ia(vec!["b", "c", "d"], vec!["a"], Some(vec!["f", "g", "e"])),
+            ])
         }
 
         fn create_independencies_5() -> Independencies {
-            let mut ind = Independencies::new();
-            ind.add_assertions_from_tuples(vec![
-                (vec!["a".to_string()], vec!["b".to_string(), "c".to_string(), "d".to_string()], Some(vec!["e".to_string(), "f".to_string(), "g".to_string()])),
-                (vec!["c".to_string()], vec!["d".to_string(), "e".to_string(), "f".to_string()], Some(vec!["g".to_string()]))
-            ]).unwrap();
-            ind
+            create_independencies(vec![
+                create_ia(vec!["a"], vec!["b", "c", "d"], Some(vec!["e", "f", "g"])),
+                create_ia(vec!["c"], vec!["d", "e", "f"], Some(vec!["g"])),
+            ])
         }
 
         #[test]
@@ -419,27 +437,24 @@ mod independence_tests {
         #[test]
         fn test_pgmpy_complex_equivalence_scenarios() {
             // Test case 1: ind1 vs ind2 (should NOT be equivalent)
-            let mut ind1 = Independencies::new();
-            ind1.add_assertions_from_tuples(vec![
-                (vec!["X".to_string()], vec!["Y".to_string(), "W".to_string()], Some(vec!["Z".to_string()]))
-            ]).unwrap();
+            let ind1 = create_independencies(vec![
+                create_ia(vec!["X"], vec!["Y", "W"], Some(vec!["Z"]))
+            ]);
 
-            let mut ind2 = Independencies::new();
-            ind2.add_assertions_from_tuples(vec![
-                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["Z".to_string()])),
-                (vec!["X".to_string()], vec!["W".to_string()], Some(vec!["Z".to_string()]))
-            ]).unwrap();
+            let ind2 = create_independencies(vec![
+                create_ia(vec!["X"], vec!["Y"], Some(vec!["Z"])),
+                create_ia(vec!["X"], vec!["W"], Some(vec!["Z"]))
+            ]);
 
             // This should be FALSE - ind1 should NOT be equivalent to ind2
             assert!(!ind1.is_equivalent(&ind2), "ind1 should NOT be equivalent to ind2");
 
             // Test case 2: ind1 vs ind3 (should be equivalent)
-            let mut ind3 = Independencies::new();
-            ind3.add_assertions_from_tuples(vec![
-                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["Z".to_string()])),
-                (vec!["X".to_string()], vec!["W".to_string()], Some(vec!["Z".to_string()])),
-                (vec!["X".to_string()], vec!["Y".to_string()], Some(vec!["W".to_string(), "Z".to_string()]))
-            ]).unwrap();
+            let ind3 = create_independencies(vec![
+                create_ia(vec!["X"], vec!["Y"], Some(vec!["Z"])),
+                create_ia(vec!["X"], vec!["W"], Some(vec!["Z"])),
+                create_ia(vec!["X"], vec!["Y"], Some(vec!["W", "Z"]))
+            ]);
 
             // This should be TRUE - ind1 should be equivalent to ind3
             assert!(ind1.is_equivalent(&ind3), "ind1 should be equivalent to ind3");
@@ -449,10 +464,9 @@ mod independence_tests {
         fn test_comprehensive_equality_edge_cases() {
             let empty_ind = Independencies::new();
             
-            let mut non_empty_ind = Independencies::new();
-            non_empty_ind.add_assertions_from_tuples(vec![
-                (vec!["A".to_string()], vec!["B".to_string()], Some(vec!["C".to_string()]))
-            ]).unwrap();
+            let non_empty_ind = create_independencies(vec![
+                create_ia(vec!["A"], vec!["B"], Some(vec!["C"]))
+            ]);
 
             // Empty vs non-empty should be false
             assert_ne!(empty_ind, non_empty_ind, "Empty and non-empty independencies should not be equal");
@@ -472,17 +486,15 @@ mod independence_tests {
         #[test] 
         fn test_complex_symmetric_equivalence() {
             // Create complex assertions that test symmetry at multiple levels
-            let mut ind_a = Independencies::new();
-            ind_a.add_assertions_from_tuples(vec![
-                (vec!["X".to_string(), "Y".to_string()], vec!["A".to_string(), "B".to_string()], Some(vec!["Z".to_string()])),
-                (vec!["P".to_string()], vec!["Q".to_string(), "R".to_string(), "S".to_string()], Some(vec!["T".to_string(), "U".to_string()]))
-            ]).unwrap();
+            let ind_a = create_independencies(vec![
+                create_ia(vec!["X", "Y"], vec!["A", "B"], Some(vec!["Z"])),
+                create_ia(vec!["P"], vec!["Q", "R", "S"], Some(vec!["T", "U"]))
+            ]);
 
-            let mut ind_b = Independencies::new();
-            ind_b.add_assertions_from_tuples(vec![
-                (vec!["A".to_string(), "B".to_string()], vec!["X".to_string(), "Y".to_string()], Some(vec!["Z".to_string()])),
-                (vec!["P".to_string()], vec!["S".to_string(), "Q".to_string(), "R".to_string()], Some(vec!["U".to_string(), "T".to_string()]))
-            ]).unwrap();
+            let ind_b = create_independencies(vec![
+                create_ia(vec!["A", "B"], vec!["X", "Y"], Some(vec!["Z"])),
+                create_ia(vec!["P"], vec!["S", "Q", "R"], Some(vec!["U", "T"]))
+            ]);
 
             // These should be equal due to symmetric equivalence and set ordering
             assert_eq!(ind_a, ind_b, "Symmetric complex independencies should be equal");
@@ -500,29 +512,27 @@ mod independence_tests {
             let vars5 = ind5.get_all_variables();
 
             // All should contain the same variables
-            let expected_vars: HashSet<String> = set_from_vec(vec!["a", "b", "c", "d", "e", "f", "g", "h"]);
+            let expected_vars: HashSet<String> = s_set(vec!["a", "b", "c", "d", "e", "f", "g", "h"]);
             assert_eq!(vars3, expected_vars, "Independencies3 should have all expected variables");
             assert_eq!(vars4, expected_vars, "Independencies4 should have all expected variables");
 
-            let expected_vars5: HashSet<String> = set_from_vec(vec!["a", "b", "c", "d", "e", "f", "g"]);
+            let expected_vars5: HashSet<String> = s_set(vec!["a", "b", "c", "d", "e", "f", "g"]);
             assert_eq!(vars5, expected_vars5, "Independencies5 should have subset of variables");
         }
 
         #[test]
         fn test_bidirectional_equivalence_complex() {
             // Test that equivalence is truly bidirectional in complex scenarios
-            let mut ind_x = Independencies::new();
-            ind_x.add_assertions_from_tuples(vec![
-                (vec!["A".to_string()], vec!["B".to_string(), "C".to_string()], Some(vec!["D".to_string()])),
-                (vec!["E".to_string()], vec!["F".to_string()], Some(vec!["G".to_string(), "H".to_string()]))
-            ]).unwrap();
+            let ind_x = create_independencies(vec![
+                create_ia(vec!["A"], vec!["B", "C"], Some(vec!["D"])),
+                create_ia(vec!["E"], vec!["F"], Some(vec!["G", "H"]))
+            ]);
 
-            let mut ind_y = Independencies::new();
-            ind_y.add_assertions_from_tuples(vec![
-                (vec!["A".to_string()], vec!["B".to_string()], Some(vec!["D".to_string()])),
-                (vec!["A".to_string()], vec!["C".to_string()], Some(vec!["D".to_string()])),
-                (vec!["E".to_string()], vec!["F".to_string()], Some(vec!["G".to_string(), "H".to_string()]))
-            ]).unwrap();
+            let ind_y = create_independencies(vec![
+                create_ia(vec!["A"], vec!["B"], Some(vec!["D"])),
+                create_ia(vec!["A"], vec!["C"], Some(vec!["D"])),
+                create_ia(vec!["E"], vec!["F"], Some(vec!["G", "H"]))
+            ]);
 
             // Test that decomposition creates equivalence
             assert!(ind_x.entails(&ind_y), "Complex independencies should entail their decomposition");
@@ -539,17 +549,14 @@ mod independence_tests {
 
         #[test]
         fn test_pgmpy_closure_large_case() {
-            use rust_core::Independencies;
-
-            let mut ind3 = Independencies::new();
-            ind3.add_assertions_from_tuples(vec![
-                (vec!["c".to_string()], vec!["a".to_string()], Some(vec!["b".to_string(), "e".to_string(), "d".to_string()])),
-                (vec!["e".to_string(), "c".to_string()], vec!["b".to_string()], Some(vec!["a".to_string(), "d".to_string()])),
-                (vec!["b".to_string(), "d".to_string()], vec!["e".to_string()], Some(vec!["a".to_string()])),
-                (vec!["e".to_string()], vec!["b".to_string(), "d".to_string()], Some(vec!["c".to_string()])),
-                (vec!["e".to_string()], vec!["b".to_string(), "c".to_string()], Some(vec!["d".to_string()])),
-                (vec!["e".to_string(), "c".to_string()], vec!["a".to_string()], Some(vec!["b".to_string()])),
-            ]).unwrap();
+            let ind3 = create_independencies(vec![
+                create_ia(vec!["c"], vec!["a"], Some(vec!["b", "e", "d"])),
+                create_ia(vec!["e", "c"], vec!["b"], Some(vec!["a", "d"])),
+                create_ia(vec!["b", "d"], vec!["e"], Some(vec!["a"])),
+                create_ia(vec!["e"], vec!["b", "d"], Some(vec!["c"])),
+                create_ia(vec!["e"], vec!["b", "c"], Some(vec!["d"])),
+                create_ia(vec!["e", "c"], vec!["a"], Some(vec!["b"])),
+            ]);
 
             let closure = ind3.closure();
             for assertion in closure.get_assertions() {
@@ -557,6 +564,47 @@ mod independence_tests {
             }
             assert_eq!(closure.get_assertions().len(), 78);
         }
+
+        
+        #[test]
+        fn test_pgmpy_closure_w_xyz() {
+            // This corresponds to Independencies(('W', ['X', 'Y', 'Z'])) in pgmpy
+            let ind2 = create_independencies(vec![
+                create_ia(vec!["W"], vec!["X", "Y", "Z"], None),
+            ]);
+
+            let actual_closure = ind2.closure();
+            let actual_assertions_set: HashSet<_> = actual_closure.get_assertions().iter().cloned().collect();
+
+            let expected_assertions_vec = vec![
+                // The order here doesn't matter for the final comparison with HashSet
+                create_ia(vec!["W"], vec!["Y"], None),
+                create_ia(vec!["W"], vec!["Y"], Some(vec!["X"])),
+                create_ia(vec!["W"], vec!["Y"], Some(vec!["Z"])),
+                create_ia(vec!["W"], vec!["Y"], Some(vec!["X", "Z"])),
+                create_ia(vec!["W"], vec!["X", "Y"], None), 
+                create_ia(vec!["W"], vec!["X"], Some(vec!["Y", "Z"])),
+                create_ia(vec!["W"], vec!["X", "Z"], Some(vec!["Y"])), 
+                create_ia(vec!["W"], vec!["X"], None),
+                create_ia(vec!["W"], vec!["X", "Z"], None),
+                create_ia(vec!["W"], vec!["Y", "Z"], Some(vec!["X"])),
+                create_ia(vec!["W"], vec!["X", "Y", "Z"], None),
+                create_ia(vec!["W"], vec!["X"], Some(vec!["Z"])),
+                create_ia(vec!["W"], vec!["Y", "Z"], None),
+                create_ia(vec!["W"], vec!["Z"], Some(vec!["X"])),
+                create_ia(vec!["W"], vec!["Z"], None),
+                create_ia(vec!["W"], vec!["X", "Y"], Some(vec!["Z"])),
+                create_ia(vec!["W"], vec!["X"], Some(vec!["Y"])),
+                create_ia(vec!["W"], vec!["Z"], Some(vec!["X", "Y"])),
+                create_ia(vec!["W"], vec!["Z"], Some(vec!["Y"])),
+            ];
+            let expected_assertions_set: HashSet<_> = expected_assertions_vec.into_iter().collect();
+
+            // Assert that the two sets are equal
+            assert_eq!(actual_assertions_set.len(), expected_assertions_set.len(), "Mismatch in number of assertions");
+            assert_eq!(actual_assertions_set, expected_assertions_set, "Mismatch in closure results");
+        }
+
     }
 
 }

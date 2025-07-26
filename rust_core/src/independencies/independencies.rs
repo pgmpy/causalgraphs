@@ -210,7 +210,7 @@ impl Independencies {
             ind.event2.clone(),
             ind.event1.clone(),
             if ind.event3.is_empty() { None } else { Some(ind.event3.clone()) },
-        ).unwrap()  // Assuming it succeeds
+        ).unwrap()
     }
     
     /// Decomposition rule: 'X ⊥ Y,W | Z' -> 'X ⊥ Y | Z', 'X ⊥ W | Z'
@@ -338,9 +338,9 @@ impl Independencies {
         let y_z: &HashSet<String> = &larger.event3;
         
         // Use proper subset: subset and not equal
-        if y.is_subset(y_z) && *y != *y_z &&
-        z.is_subset(y_z) && *z != *y_z &&
-        y.is_disjoint(z) && !y.is_empty() && !z.is_empty() {
+        if  y.is_subset(y_z) && y != y_z &&
+            z.is_subset(y_z) && z != y_z &&
+            y.is_disjoint(z) {
             // Create new assertion: X ⊥ W,Y | Z
             let mut new_event2 = larger.event2.clone();
             new_event2.extend(y.iter().cloned());
