@@ -1,5 +1,5 @@
 import pytest
-from causalgraphs import IndependenceAssertion, Independencies, RustDAG
+from causalgraphs import IndependenceAssertion, Independencies
 from typing import List, Optional, Set, Dict
 from collections import defaultdict
 

@@ -3,7 +3,7 @@ use pyo3::exceptions::{PyKeyError, PyValueError};
 use rust_core::{RustDAG, IndependenceAssertion, Independencies};
 use std::collections::HashSet;
 
-#[pyclass(name = "RustDAG")]
+#[pyclass(name = "DAG")]
 #[derive(Clone)]
 pub struct PyRustDAG {
     inner: RustDAG,
