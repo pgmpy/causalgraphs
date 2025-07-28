@@ -42,13 +42,21 @@ impl IndependenceAssertion {
     }
     
     pub fn to_latex(&self) -> String {
-        let e1_str = self.event1.iter().cloned().collect::<Vec<_>>().join(", ");
-        let e2_str = self.event2.iter().cloned().collect::<Vec<_>>().join(", ");
+        // Sort the elements to ensure deterministic output
+        let mut e1_vec: Vec<String> = self.event1.iter().cloned().collect();
+        let mut e2_vec: Vec<String> = self.event2.iter().cloned().collect();
+        e1_vec.sort();
+        e2_vec.sort();
+        
+        let e1_str = e1_vec.join(", ");
+        let e2_str = e2_vec.join(", ");
         
         if self.event3.is_empty() {
             format!("{} \\perp {}", e1_str, e2_str)
         } else {
-            let e3_str = self.event3.iter().cloned().collect::<Vec<_>>().join(", ");
+            let mut e3_vec: Vec<String> = self.event3.iter().cloned().collect();
+            e3_vec.sort();
+            let e3_str = e3_vec.join(", ");
             format!("{} \\perp {} \\mid {}", e1_str, e2_str, e3_str)
         }
     }
@@ -56,13 +64,21 @@ impl IndependenceAssertion {
 
 impl std::fmt::Display for IndependenceAssertion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let e1_str = self.event1.iter().cloned().collect::<Vec<_>>().join(", ");
-        let e2_str = self.event2.iter().cloned().collect::<Vec<_>>().join(", ");
+        // Sort the elements to ensure deterministic output
+        let mut e1_vec: Vec<String> = self.event1.iter().cloned().collect();
+        let mut e2_vec: Vec<String> = self.event2.iter().cloned().collect();
+        e1_vec.sort();
+        e2_vec.sort();
+        
+        let e1_str = e1_vec.join(", ");
+        let e2_str = e2_vec.join(", ");
         
         if self.event3.is_empty() {
             write!(f, "({} ⊥ {})", e1_str, e2_str)
         } else {
-            let e3_str = self.event3.iter().cloned().collect::<Vec<_>>().join(", ");
+            let mut e3_vec: Vec<String> = self.event3.iter().cloned().collect();
+            e3_vec.sort();
+            let e3_str = e3_vec.join(", ");
             write!(f, "({} ⊥ {} | {})", e1_str, e2_str, e3_str)
         }
     }
