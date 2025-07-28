@@ -2,11 +2,11 @@ use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-// Remove #[pyclass] here. This is a pure Rust struct.
+
 #[derive(Debug, Clone)] // Add Debug for easier printing in Rust tests
 pub struct RustDAG {
     pub graph: DiGraph<String, f64>, // Make fields public if bindings need direct access,
-    pub node_map: HashMap<String, NodeIndex>, // or provide internal methods.
+    pub node_map: HashMap<String, NodeIndex>,
     pub reverse_node_map: HashMap<NodeIndex, String>,
     pub latents: HashSet<String>,
 }
@@ -62,6 +62,26 @@ impl RustDAG {
         let v_idx: NodeIndex = self.node_map[&v];
 
         self.graph.add_edge(u_idx, v_idx, weight.unwrap_or(1.0));
+        Ok(())
+    }
+
+    pub fn add_edges_from(
+        &mut self,
+        ebunch: Vec<(String, String)>,
+        weights: Option<Vec<f64>>,
+    ) -> Result<(), String> {
+        if let Some(ws) = &weights {
+            if ebunch.len() != ws.len() {
+                return Err("The number of elements in ebunch and weights should be equal".to_string());
+            }
+            for (i, (u, v)) in ebunch.iter().enumerate() {
+                self.add_edge(u.clone(), v.clone(), Some(ws[i]))?;
+            }
+        } else {
+            for (u, v) in ebunch {
+                self.add_edge(u, v, None)?;
+            }
+        }
         Ok(())
     }
 
@@ -122,6 +142,199 @@ impl RustDAG {
         Ok(ancestors)
     }
 
+
+    pub fn active_trail_nodes(&self, variables: Vec<String>, observed: Option<Vec<String>>, include_latents: bool) -> Result<HashMap<String, HashSet<String>>, String> {
+        let observed_list: HashSet<String> = observed.unwrap_or_default().into_iter().collect();
+        // Precompute ancestors of observed nodes (needed for collider rule)
+        // Example: If C is observed in A→B←C→D, ancestors_list = {A, B, C}
+        let ancestors_list: HashSet<String> = self.get_ancestors_of(observed_list.iter().cloned().collect())?;
+
+        let mut active_trails: HashMap<String, HashSet<String>> = HashMap::new();
+        // For each starting variable, find all nodes reachable via active trails
+        for start in variables {
+            // BFS with direction tracking: (node, direction_of_arrival)
+            // "up" = coming from child toward parents, "down" = coming from parent toward children
+            let mut visit_list: HashSet<(String, &str)> = HashSet::new();
+            let mut traversed_list: HashSet<(String, &str)> = HashSet::new();
+            let mut active_nodes: HashSet<String> = HashSet::new();
+
+            if !self.node_map.contains_key(&start) {
+                return Err(format!("Node {} not in graph", start));
+            }
+
+            visit_list.insert((start.clone(), "up"));
+            while let Some((node, direction)) = visit_list.iter().next().map(|x| x.clone()) {
+                visit_list.remove(&(node.clone(), direction));
+                if !traversed_list.contains(&(node.clone(), direction)) {
+                    // Add to active trail if not observed (observed nodes block but aren't "reachable")
+                    if !observed_list.contains(&node) {
+                        active_nodes.insert(node.clone());
+                    }
+                    traversed_list.insert((node.clone(), direction));
+
+                    // If arriving "up" at unobserved B, can continue to parents and switch to children
+                    if direction == "up" && !observed_list.contains(&node) {
+                        for parent in self.get_parents(&node)? {
+                            visit_list.insert((parent, "up")); // Continue up the chain
+                        }
+                        for child in self.get_children(&node)? {
+                            visit_list.insert((child, "down")); // Switch direction
+                        }
+                    } 
+
+                    // If arriving "down", can continue down if unobserved, or go up if it's a collider
+                    else if direction == "down" {
+                        if !observed_list.contains(&node) {
+                            for child in self.get_children(&node)? {
+                                visit_list.insert((child, "down"));
+                            }
+                        }
+                        if ancestors_list.contains(&node) {
+                            for parent in self.get_parents(&node)? {
+                                visit_list.insert((parent, "up"));
+                            }
+                        }
+                    }
+                }
+            }
+
+            let final_nodes: HashSet<String> = if include_latents {
+                active_nodes
+            } else {
+                active_nodes.difference(&self.latents).cloned().collect()
+            };
+            active_trails.insert(start, final_nodes);
+        }
+
+        Ok(active_trails)
+    }
+
+    pub fn is_dconnected(&self, start: &str, end: &str, observed: Option<Vec<String>>, include_latents: bool) -> Result<bool, String> {
+        let trails = self.active_trail_nodes(vec![start.to_string()], observed, include_latents)?;
+        Ok(trails.get(start).map(|nodes| nodes.contains(end)).unwrap_or(false))
+    }
+
+    pub fn minimal_dseparator(
+        &self, 
+        start: &str, 
+        end: &str, 
+        include_latents: bool
+    ) -> Result<Option<HashSet<String>>, String> {
+        // Example: For DAG A→B←C, B→D, trying to separate A and C
+        // Adjacent nodes can't be separated by any conditioning set
+        if self.has_edge(start, end) || self.has_edge(end, start) {
+            return Err("No possible separators because start and end are adjacent".to_string());
+        }
+
+        // Create ancestral graph containing only ancestors of start and end
+        // Example: For separating A and D in A→B←C, B→D, ancestral graph = {A, B, C, D}
+        let ancestral_graph = self.get_ancestral_graph(vec![start.to_string(), end.to_string()])?;
+        
+        // Initial separator: all parents of both nodes (theoretical upper bound)
+        // Example: parents(A)={} ∪ parents(D)={B} → separator = {B}
+        let mut separator: HashSet<String> = self.get_parents(start)?
+            .into_iter()
+            .chain(self.get_parents(end)?.into_iter())
+            .collect();
+
+        // Replace latent variables with their observable parents
+        // Example: If B were latent with parent L, replace B with L in separator
+        if !include_latents {
+            let mut changed = true;
+            while changed {
+                changed = false;
+                let mut new_separator: HashSet<String> = HashSet::new();
+                
+                for node in &separator {
+                    if self.latents.contains(node) {
+                        new_separator.extend(self.get_parents(node)?);
+                        changed = true;
+                    } else {
+                        new_separator.insert(node.clone());
+                    }
+                }
+                separator = new_separator;
+            }
+        }
+
+        separator.remove(start);
+        separator.remove(end);
+
+        // Sanity check: if our "guaranteed" separator doesn't work, no separator exists
+        if ancestral_graph.is_dconnected(start, end, Some(separator.iter().cloned().collect()), include_latents)? {
+            return Ok(None);
+        }
+
+        // Greedy minimization: remove each node if separation still holds without it
+        // Example: If separator = {B, C} but {B} alone separates A from D, remove C
+        let mut minimal_separator = separator.clone();
+        for u in separator {
+            let test_separator: Vec<String> = minimal_separator.iter().cloned().filter(|x| x != &u).collect();
+            
+            // If still d-separated WITHOUT this node, we can remove it
+            if !ancestral_graph.is_dconnected(start, end, Some(test_separator), include_latents)? {
+                minimal_separator.remove(&u);
+            }
+        }
+
+        Ok(Some(minimal_separator))
+    }
+
+    /// Check if two nodes are neighbors (directly connected in either direction)
+    pub fn are_neighbors(&self, start: &str, end: &str) -> Result<bool, String> {
+        let start_idx = self.node_map.get(start)
+            .ok_or_else(|| format!("Node {} not found", start))?;
+        let end_idx = self.node_map.get(end)
+            .ok_or_else(|| format!("Node {} not found", end))?;
+
+        // Check for edge in either direction
+        let has_edge = self.graph.find_edge(*start_idx, *end_idx).is_some() ||
+                      self.graph.find_edge(*end_idx, *start_idx).is_some();
+
+        Ok(has_edge)
+    }
+
+    /// Get ancestral graph containing only ancestors of the given nodes
+    pub fn get_ancestral_graph(&self, nodes: Vec<String>) -> Result<RustDAG, String> {
+        let ancestors = self.get_ancestors_of(nodes)?;
+        let mut ancestral_graph = RustDAG::new();
+
+        // Add all ancestor nodes with their latent status
+        for node in &ancestors {
+            let is_latent = self.latents.contains(node);
+            ancestral_graph.add_node(node.clone(), is_latent)?;
+        }
+
+        // Add edges between ancestors only
+        for (source, target) in self.edges() {
+            if ancestors.contains(&source) && ancestors.contains(&target) {
+                ancestral_graph.add_edge(source, target, None)?;
+            }
+        }
+
+        Ok(ancestral_graph)
+    }
+
+
+
+    /// Returns a list of leaves (nodes with out-degree 0)
+    pub fn get_leaves(&self) -> Vec<String> {
+        self.graph
+            .node_indices()
+            .filter(|&idx| self.graph.neighbors_directed(idx, Direction::Outgoing).next().is_none())
+            .map(|idx| self.reverse_node_map[&idx].clone())
+            .collect()
+    }
+
+    /// Returns a list of roots (nodes with in-degree 0)
+    pub fn get_roots(&self) -> Vec<String> {
+        self.graph
+            .node_indices()
+            .filter(|&idx| self.graph.neighbors_directed(idx, Direction::Incoming).next().is_none())
+            .map(|idx| self.reverse_node_map[&idx].clone())
+            .collect()
+    }
+
     /// Get all nodes in the graph
     pub fn nodes(&self) -> Vec<String> {
         self.node_map.keys().cloned().collect()
@@ -139,6 +352,13 @@ impl RustDAG {
                 )
             })
             .collect()
+    }
+
+    pub fn has_edge(&self, u: &str, v: &str) -> bool {
+        match (self.node_map.get(u), self.node_map.get(v)) {
+            (Some(u_idx), Some(v_idx)) => self.graph.find_edge(*u_idx, *v_idx).is_some(),
+            _ => false,
+        }
     }
 
     /// Get number of nodes

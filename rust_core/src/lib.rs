@@ -1,5 +1,7 @@
 // Re-export modules/structs from your core logic
 pub mod dag;
+pub mod independencies;
 // pub mod pdag; // Add PDAG.rs later if needed
 
 pub use dag::RustDAG;
+pub use independencies::{IndependenceAssertion, Independencies};
