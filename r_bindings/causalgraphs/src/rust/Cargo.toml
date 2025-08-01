@@ -11,9 +11,9 @@ name = 'rcausalgraphs'
 
 [dependencies]
 
-rust_core = { git = "https://github.com/pgmpy/causalgraphs.git", branch = "main", package = "rust_core" }
+# rust_core = { git = "https://github.com/pgmpy/causalgraphs.git", branch = "main", package = "rust_core" }
 
 # For local development, comment out the Git line above and uncomment this:
-# rust_core = { path = "../../../../rust_core" }
+rust_core = { path = "../../../../rust_core" }
 
 extendr-api = '*'

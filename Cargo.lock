@@ -50,7 +50,7 @@ name = "causalgraphs"
 version = "0.1.0"
 dependencies = [
  "pyo3",
- "rust_core 0.1.0",
+ "rust_core",
 ]
 
 [[package]]
@@ -61,7 +61,7 @@ dependencies = [
  "getrandom 0.2.16",
  "getrandom 0.3.3",
  "js-sys",
- "rust_core 0.1.0",
+ "rust_core",
  "serde",
  "serde-wasm-bindgen",
  "uuid",
@@ -563,7 +563,7 @@ name = "rcausalgraphs"
 version = "0.1.0"
 dependencies = [
  "extendr-api",
- "rust_core 0.1.0 (git+https://github.com/pgmpy/causalgraphs.git?branch=main)",
+ "rust_core",
 ]
 
 [[package]]
@@ -582,17 +582,6 @@ dependencies = [
  "ahash",
  "indexmap 2.10.0",
  "itertools 0.14.0",
- "petgraph",
- "rustworkx-core",
-]
-
-[[package]]
-name = "rust_core"
-version = "0.1.0"
-source = "git+https://github.com/pgmpy/causalgraphs.git?branch=main#e8625b5a019ba8a6f67e53a9d1df7c9e925bac84"
-dependencies = [
- "ahash",
- "indexmap 2.10.0",
  "petgraph",
  "rustworkx-core",
 ]
