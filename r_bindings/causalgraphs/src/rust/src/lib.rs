@@ -12,7 +12,9 @@ impl RDAG {
     /// Create a new DAG
     /// @export
     fn new() -> Self {
-        RDAG { inner: RustDAG::new() }
+        RDAG {
+            inner: RustDAG::new(),
+        }
     }
 
     /// Add a single node to the DAG
@@ -20,20 +22,27 @@ impl RDAG {
     /// @param latent Whether the node is latent (default: FALSE)
     /// @export
     fn add_node(&mut self, node: String, latent: Option<bool>) -> extendr_api::Result<()> {
-        self.inner.add_node(node, latent.unwrap_or(false))
+        self.inner
+            .add_node(node, latent.unwrap_or(false))
             .map_err(Error::from)
     }
-
 
     /// Add multiple nodes to the DAG
     /// @param nodes Vector of node names
     /// @param latent Optional vector of latent flags
     /// @export
-    fn add_nodes_from(&mut self, nodes: Strings, latent: Nullable<Logicals>) -> extendr_api::Result<()> {
+    fn add_nodes_from(
+        &mut self,
+        nodes: Strings,
+        latent: Nullable<Logicals>,
+    ) -> extendr_api::Result<()> {
         let node_vec: Vec<String> = nodes.iter().map(|s| s.to_string()).collect();
-        let latent_opt: Option<Vec<bool>> = latent.into_option().map(|v| v.iter().map(|x| x.is_true()).collect());
-        
-        self.inner.add_nodes_from(node_vec, latent_opt)
+        let latent_opt: Option<Vec<bool>> = latent
+            .into_option()
+            .map(|v| v.iter().map(|x| x.is_true()).collect());
+
+        self.inner
+            .add_nodes_from(node_vec, latent_opt)
             .map_err(|e| Error::Other(e))
     }
 
@@ -44,16 +53,14 @@ impl RDAG {
     /// @export
     fn add_edge(&mut self, u: String, v: String, weight: Nullable<f64>) -> extendr_api::Result<()> {
         let w = weight.into_option();
-        self.inner.add_edge(u, v, w)
-            .map_err(|e| Error::Other(e))
+        self.inner.add_edge(u, v, w).map_err(|e| Error::Other(e))
     }
 
     /// Get parents of a node
     /// @param node The node name
     /// @export
     fn get_parents(&self, node: String) -> extendr_api::Result<Strings> {
-        let parents = self.inner.get_parents(&node)
-            .map_err(|e| Error::Other(e))?;
+        let parents = self.inner.get_parents(&node).map_err(|e| Error::Other(e))?;
         Ok(parents.iter().map(|s| s.as_str()).collect::<Strings>())
     }
 
@@ -61,7 +68,9 @@ impl RDAG {
     /// @param node The node name
     /// @export
     fn get_children(&self, node: String) -> extendr_api::Result<Strings> {
-        let children = self.inner.get_children(&node)
+        let children = self
+            .inner
+            .get_children(&node)
             .map_err(|e| Error::Other(e))?;
         Ok(children.iter().map(|s| s.as_str()).collect::<Strings>())
     }
@@ -71,7 +80,9 @@ impl RDAG {
     /// @export
     fn get_ancestors_of(&self, nodes: Strings) -> extendr_api::Result<Strings> {
         let node_vec: Vec<String> = nodes.iter().map(|s| s.to_string()).collect();
-        let ancestors = self.inner.get_ancestors_of(node_vec)
+        let ancestors = self
+            .inner
+            .get_ancestors_of(node_vec)
             .map_err(|e| Error::Other(e))?;
         Ok(ancestors.iter().map(|s| s.as_str()).collect::<Strings>())
     }
@@ -106,7 +117,11 @@ impl RDAG {
     /// Get latent nodes
     /// @export
     fn latents(&self) -> Strings {
-        self.inner.latents.iter().map(|s| s.as_str()).collect::<Strings>()
+        self.inner
+            .latents
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Strings>()
     }
 }
 

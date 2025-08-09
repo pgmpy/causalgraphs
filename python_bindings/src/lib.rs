@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
 use pyo3::exceptions::{PyKeyError, PyValueError};
-use rust_core::{RustDAG, IndependenceAssertion, Independencies};
+use pyo3::prelude::*;
+use rust_core::{IndependenceAssertion, Independencies, RustDAG};
 use std::collections::HashSet;
 
 #[pyclass(name = "DAG")]
@@ -13,21 +13,30 @@ pub struct PyRustDAG {
 impl PyRustDAG {
     #[new]
     pub fn new() -> Self {
-        PyRustDAG { inner: RustDAG::new() }
+        PyRustDAG {
+            inner: RustDAG::new(),
+        }
     }
 
     pub fn add_node(&mut self, node: String, latent: Option<bool>) -> PyResult<()> {
-        self.inner.add_node(node, latent.unwrap_or(false))
+        self.inner
+            .add_node(node, latent.unwrap_or(false))
             .map_err(PyValueError::new_err)
     }
 
-    pub fn add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<bool>>) -> PyResult<()> {
-        self.inner.add_nodes_from(nodes, latent)
+    pub fn add_nodes_from(
+        &mut self,
+        nodes: Vec<String>,
+        latent: Option<Vec<bool>>,
+    ) -> PyResult<()> {
+        self.inner
+            .add_nodes_from(nodes, latent)
             .map_err(PyValueError::new_err)
     }
 
     pub fn add_edge(&mut self, u: String, v: String, weight: Option<f64>) -> PyResult<()> {
-        self.inner.add_edge(u, v, weight)
+        self.inner
+            .add_edge(u, v, weight)
             .map_err(PyValueError::new_err)
     }
 
@@ -36,22 +45,22 @@ impl PyRustDAG {
         ebunch: Vec<(String, String)>,
         weights: Option<Vec<f64>>,
     ) -> PyResult<()> {
-        self.inner.add_edges_from(ebunch, weights)
+        self.inner
+            .add_edges_from(ebunch, weights)
             .map_err(PyValueError::new_err)
     }
 
     pub fn get_parents(&self, node: String) -> PyResult<Vec<String>> {
-        self.inner.get_parents(&node)
-            .map_err(PyKeyError::new_err)
+        self.inner.get_parents(&node).map_err(PyKeyError::new_err)
     }
 
     pub fn get_children(&self, node: String) -> PyResult<Vec<String>> {
-        self.inner.get_children(&node)
-            .map_err(PyKeyError::new_err)
+        self.inner.get_children(&node).map_err(PyKeyError::new_err)
     }
 
     pub fn get_ancestors_of(&self, nodes: Vec<String>) -> PyResult<HashSet<String>> {
-        self.inner.get_ancestors_of(nodes)
+        self.inner
+            .get_ancestors_of(nodes)
             .map_err(PyValueError::new_err)
     }
 
@@ -78,7 +87,8 @@ impl PyRustDAG {
         observed: Option<Vec<String>>,
         include_latents: bool,
     ) -> PyResult<std::collections::HashMap<String, std::collections::HashSet<String>>> {
-        self.inner.active_trail_nodes(variables, observed, include_latents)
+        self.inner
+            .active_trail_nodes(variables, observed, include_latents)
             .map_err(PyValueError::new_err)
     }
 
@@ -90,17 +100,20 @@ impl PyRustDAG {
         observed: Option<Vec<String>>,
         include_latents: bool,
     ) -> PyResult<bool> {
-        self.inner.is_dconnected(&start, &end, observed, include_latents)
+        self.inner
+            .is_dconnected(&start, &end, observed, include_latents)
             .map_err(PyValueError::new_err)
     }
 
     pub fn are_neighbors(&self, start: String, end: String) -> PyResult<bool> {
-        self.inner.are_neighbors(&start, &end)
+        self.inner
+            .are_neighbors(&start, &end)
             .map_err(PyValueError::new_err)
     }
 
     pub fn get_ancestral_graph(&self, nodes: Vec<String>) -> PyResult<PyRustDAG> {
-        self.inner.get_ancestral_graph(nodes)
+        self.inner
+            .get_ancestral_graph(nodes)
             .map(|dag| PyRustDAG { inner: dag })
             .map_err(PyValueError::new_err)
     }
@@ -112,7 +125,8 @@ impl PyRustDAG {
         end: String,
         include_latents: bool,
     ) -> PyResult<Option<std::collections::HashSet<String>>> {
-        self.inner.minimal_dseparator(&start, &end, include_latents)
+        self.inner
+            .minimal_dseparator(&start, &end, include_latents)
             .map_err(PyValueError::new_err)
     }
 }
@@ -126,12 +140,15 @@ pub struct PyIndependenceAssertion {
 #[pymethods]
 impl PyIndependenceAssertion {
     #[new]
-    pub fn new(event1: Vec<String>, event2: Vec<String>, event3: Option<Vec<String>>) -> PyResult<Self> {
+    pub fn new(
+        event1: Vec<String>,
+        event2: Vec<String>,
+        event3: Option<Vec<String>>,
+    ) -> PyResult<Self> {
         let e1: HashSet<String> = event1.into_iter().collect();
         let e2: HashSet<String> = event2.into_iter().collect();
         let e3: Option<HashSet<String>> = event3.map(|v| v.into_iter().collect());
-        let assertion = IndependenceAssertion::new(e1, e2, e3)
-            .map_err(PyValueError::new_err)?;
+        let assertion = IndependenceAssertion::new(e1, e2, e3).map_err(PyValueError::new_err)?;
         Ok(PyIndependenceAssertion { inner: assertion })
     }
 
@@ -194,20 +211,27 @@ pub struct PyIndependencies {
 impl PyIndependencies {
     #[new]
     pub fn new() -> Self {
-        PyIndependencies { inner: Independencies::new() }
+        PyIndependencies {
+            inner: Independencies::new(),
+        }
     }
 
     pub fn add_assertion(&mut self, assertion: &PyIndependenceAssertion) {
         self.inner.add_assertion(assertion.inner.clone());
     }
 
-    pub fn add_assertions_from_tuples(&mut self, tuples: Vec<(Vec<String>, Vec<String>, Option<Vec<String>>)>) -> PyResult<()> {
-        self.inner.add_assertions_from_tuples(tuples)
+    pub fn add_assertions_from_tuples(
+        &mut self,
+        tuples: Vec<(Vec<String>, Vec<String>, Option<Vec<String>>)>,
+    ) -> PyResult<()> {
+        self.inner
+            .add_assertions_from_tuples(tuples)
             .map_err(PyValueError::new_err)
     }
 
     pub fn get_assertions(&self) -> Vec<PyIndependenceAssertion> {
-        self.inner.get_assertions()
+        self.inner
+            .get_assertions()
             .iter()
             .map(|a| PyIndependenceAssertion { inner: a.clone() })
             .collect()
@@ -215,7 +239,8 @@ impl PyIndependencies {
 
     #[getter(independencies)]
     pub fn get_independencies(&self) -> Vec<PyIndependenceAssertion> {
-        self.inner.get_assertions()
+        self.inner
+            .get_assertions()
             .iter()
             .map(|a| PyIndependenceAssertion { inner: a.clone() })
             .collect()
@@ -230,7 +255,9 @@ impl PyIndependencies {
     }
 
     pub fn closure(&self) -> PyIndependencies {
-        PyIndependencies { inner: self.inner.closure() }
+        PyIndependencies {
+            inner: self.inner.closure(),
+        }
     }
 
     #[pyo3(signature = (inplace = false))]
@@ -239,7 +266,9 @@ impl PyIndependencies {
             self.inner.reduce_inplace();
             Ok(None)
         } else {
-            Ok(Some(PyIndependencies { inner: self.inner.reduce() }))
+            Ok(Some(PyIndependencies {
+                inner: self.inner.reduce(),
+            }))
         }
     }
 
@@ -267,4 +296,3 @@ fn causalgraphs(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyIndependencies>()?;
     Ok(())
 }
-
