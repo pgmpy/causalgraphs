@@ -2,17 +2,35 @@ use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-#[derive(Debug, Clone)] // Add Debug for easier printing in Rust tests
+/// Directed Acyclic Graph (DAG) with optional latent variables.
+///
+/// Each node represents a random variable (or a cluster of variables). Directed
+/// edges represent dependencies. A subset of nodes can be marked **latent**
+/// to represent unobserved variables (e.g., unobserved confounding).
+///
+/// # Examples
+/// Create an empty DAG and add nodes/edges:
+/// ```rust
+/// # use std::collections::HashSet;
+/// let mut g = RustDAG::new();
+/// g.add_node("A".into(), false).unwrap();
+/// g.add_node("B".into(), false).unwrap();
+/// g.add_edge("A".into(), "B".into(), None).unwrap();
+/// assert!(g.has_edge("A", "B"));
+/// ```
+#[derive(Debug, Clone)]
 pub struct RustDAG {
-    pub graph: DiGraph<String, f64>, // Make fields public if bindings need direct access,
+    pub graph: DiGraph<String, f64>,
     pub node_map: HashMap<String, NodeIndex>,
     pub reverse_node_map: HashMap<NodeIndex, String>,
     pub latents: HashSet<String>,
 }
 
-// All methods here should be public, but not necessarily #[pymethods]
-// They are the *internal* implementations that the bindings will call.
-impl RustDAG {
+impl RustDAG {  
+    /// Create an empty DAG with no nodes and edges.
+    ///
+    /// # Returns
+    /// A new empty `RustDAG`.
     pub fn new() -> Self {
         RustDAG {
             graph: DiGraph::new(),
@@ -22,7 +40,17 @@ impl RustDAG {
         }
     }
 
-    /// Add a single node to the graph
+    /// Add a single node to the graph.
+    ///
+    /// Nodes are identified by their string name. If the node already exists,
+    /// the call is a no-op.
+    ///
+    /// # Parameters
+    /// - `node`: Node name.
+    /// - `latent`: Mark the node as latent (unobserved).
+    ///
+    /// # Returns
+    /// `Ok(())` on success.
     pub fn add_node(&mut self, node: String, latent: bool) -> Result<(), String> {
         if !self.node_map.contains_key(&node) {
             let idx: NodeIndex = self.graph.add_node(node.clone());
@@ -36,7 +64,15 @@ impl RustDAG {
         Ok(())
     }
 
-    /// Add multiple nodes to the graph
+    /// Add multiple nodes to the graph.
+    ///
+    /// # Parameters
+    /// - `nodes`: List of node names.
+    /// - `latent`: Optional list of latent flags parallel to `nodes`. If not
+    ///   provided, all nodes are assumed observed.
+    ///
+    /// # Errors
+    /// Returns an error if `latent` is provided and its length differs from `nodes`.
     pub fn add_nodes_from(
         &mut self,
         nodes: Vec<String>,
@@ -55,7 +91,14 @@ impl RustDAG {
         Ok(())
     }
 
-    /// Add an edge between two nodes
+
+    /// Add a directed edge `u -> v`.
+    ///
+    /// If either endpoint is missing, it is added automatically (as observed by default).
+    ///
+    /// # Parameters
+    /// - `u`, `v`: Endpoint node names.
+    /// - `weight`: Optional edge weight (defaults to `1.0`).
     pub fn add_edge(&mut self, u: String, v: String, weight: Option<f64>) -> Result<(), String> {
         // Add nodes if they don't exist. Pass false for latent by default.
         self.add_node(u.clone(), false)?;
@@ -68,6 +111,15 @@ impl RustDAG {
         Ok(())
     }
 
+
+    /// Add multiple directed edges.
+    ///
+    /// # Parameters
+    /// - `ebunch`: List of `(u, v)` edges to add.
+    /// - `weights`: Optional list of weights parallel to `ebunch`.
+    ///
+    /// # Errors
+    /// Returns an error if `weights` is given and its length differs from `ebunch`.
     pub fn add_edges_from(
         &mut self,
         ebunch: Vec<(String, String)>,
@@ -90,7 +142,16 @@ impl RustDAG {
         Ok(())
     }
 
-    /// Get parents of a node
+    /// Return the list of **parents** of `node` (in-neighbors).
+    ///
+    /// # Parameters
+    /// - `node`: Node name.
+    ///
+    /// # Returns
+    /// Vector of parent names.
+    ///
+    /// # Errors
+    /// Returns an error if `node` is not in the graph.
     pub fn get_parents(&self, node: &str) -> Result<Vec<String>, String> {
         let node_idx = self
             .node_map
@@ -106,7 +167,16 @@ impl RustDAG {
         Ok(parents)
     }
 
-    /// Get children of a node
+    /// Return the list of **children** of `node` (out-neighbors).
+    ///
+    /// # Parameters
+    /// - `node`: Node name.
+    ///
+    /// # Returns
+    /// Vector of child names.
+    ///
+    /// # Errors
+    /// Returns an error if `node` is not in the graph.
     pub fn get_children(&self, node: &str) -> Result<Vec<String>, String> {
         let node_idx = self
             .node_map
@@ -122,7 +192,23 @@ impl RustDAG {
         Ok(children)
     }
 
-    /// Get all ancestors of given nodes (optimized Rust implementation)
+    /// Return the set of **ancestors** of the given `nodes` (including the nodes themselves).
+    ///
+    /// # Parameters
+    /// - `nodes`: Node names.
+    ///
+    /// # Returns
+    /// Set of ancestor names.
+    ///
+    /// # Errors
+    /// Returns an error if any node is missing.
+    ///
+    /// # Examples
+    /// ```rust
+    /// let mut g = RustDAG::new();
+    /// g.add_edges_from(vec![("D".into(), "G".into()), ("I".into(), "G".into())], None).unwrap();
+    /// let a = g.get_ancestors_of(vec!["G".into()]).unwrap();
+    /// ```
     pub fn get_ancestors_of(&self, nodes: Vec<String>) -> Result<HashSet<String>, String> {
         let mut ancestors: HashSet<String> = HashSet::new();
         let mut queue: VecDeque<NodeIndex> = VecDeque::new();
@@ -159,6 +245,23 @@ impl RustDAG {
         Ok(ancestors)
     }
 
+    /// Compute **active trail nodes** (d-connection reachability) from each start variable.
+    ///
+    /// Returns a map `{start_variable -> reachable_nodes}` under d-separation rules,
+    /// optionally conditioning on `observed`.
+    ///
+    /// Follows Koller & Friedman (PGM) Algorithm 3.1 (message-passing with up/down directions).
+    ///
+    /// # Parameters
+    /// - `variables`: Start variables.
+    /// - `observed`: Optional list of observed nodes (conditioning set).
+    /// - `include_latents`: If `false`, latent variables are excluded from the result.
+    ///
+    /// # Returns
+    /// Map from start variable to the set of reachable nodes via active trails.
+    ///
+    /// # Errors
+    /// Returns an error if any start variable is missing.
     pub fn active_trail_nodes(
         &self,
         variables: Vec<String>,
@@ -230,6 +333,16 @@ impl RustDAG {
         Ok(active_trails)
     }
 
+
+    /// Check whether `start` and `end` are **d-connected** given `observed`.
+    ///
+    /// Returns `true` if and only if there exists an active trail between `start` and `end`
+    /// under the given conditioning set.
+    ///
+    /// # Parameters
+    /// - `start`, `end`: Node names.
+    /// - `observed`: Optional conditioning set.
+    /// - `include_latents`: If `false`, latent variables are excluded from reachable sets.
     pub fn is_dconnected(
         &self,
         start: &str,
@@ -244,6 +357,26 @@ impl RustDAG {
             .unwrap_or(false))
     }
 
+    /// Find a **minimal d-separating set** for `start` and `end`, if one exists.
+    ///
+    /// Implements the classic approach:
+    /// 1) Work in the **ancestral graph** of `{start, end}`.
+    /// 2) Start from `parents(start) U parents(end)` (replacing latent parents by their observable parents if requested).
+    /// 3) Greedily remove redundant variables while preserving d-separation.
+    ///
+    /// # Parameters
+    /// - `start`, `end`: Node names.
+    /// - `include_latents`: If `true`, latent variables may appear in the separator; otherwise they are replaced by observable parents.
+    ///
+    /// # Returns
+    /// - `Ok(Some(S))` if a minimal separator `S` exists.
+    /// - `Ok(None)` if no separator exists (i.e., still d-connected after step 2).
+    ///
+    /// # Errors
+    /// Returns an error if `start` and `end` are adjacent (no separator possible).
+    ///
+    /// # References
+    /// Tian, Paz, Pearl (1998), *Finding Minimal d-Separators*.
     pub fn minimal_dseparator(
         &self,
         start: &str,
@@ -320,7 +453,13 @@ impl RustDAG {
         Ok(Some(minimal_separator))
     }
 
-    /// Check if two nodes are neighbors (directly connected in either direction)
+    /// Check whether two nodes are **neighbors** (adjacent in either direction).
+    ///
+    /// # Returns
+    /// `true` if `start -> end` or `end -> start` exists.
+    ///
+    /// # Errors
+    /// Returns an error if either node is missing.
     pub fn are_neighbors(&self, start: &str, end: &str) -> Result<bool, String> {
         let start_idx = self
             .node_map
@@ -338,7 +477,19 @@ impl RustDAG {
         Ok(has_edge)
     }
 
-    /// Get ancestral graph containing only ancestors of the given nodes
+    /// Return the **ancestral graph** induced by the ancestors of `nodes`.
+    ///
+    /// The returned DAG contains exactly the ancestors (including the nodes
+    /// themselves) and all edges among them, preserving latent-status.
+    ///
+    /// # Parameters
+    /// - `nodes`: Node names.
+    ///
+    /// # Returns
+    /// A new `RustDAG` containing only the ancestors and their edges.
+    ///
+    /// # Errors
+    /// Propagates errors from ancestor computation or edge insertion.
     pub fn get_ancestral_graph(&self, nodes: Vec<String>) -> Result<RustDAG, String> {
         let ancestors = self.get_ancestors_of(nodes)?;
         let mut ancestral_graph = RustDAG::new();
@@ -359,7 +510,14 @@ impl RustDAG {
         Ok(ancestral_graph)
     }
 
-    /// Returns a list of leaves (nodes with out-degree 0)
+    /// Return the list of **leaves** (out-degree = 0).
+    ///
+    /// # Examples
+    /// ```rust
+    /// let mut g = RustDAG::new();
+    /// g.add_edges_from(vec![("A".into(),"B".into()), ("B".into(),"C".into()), ("B".into(),"D".into())], None).unwrap();
+    /// let mut leaves = g.get_leaves();
+    /// ```
     pub fn get_leaves(&self) -> Vec<String> {
         self.graph
             .node_indices()
@@ -373,7 +531,19 @@ impl RustDAG {
             .collect()
     }
 
-    /// Returns a list of roots (nodes with in-degree 0)
+    /// Return the list of **roots** (in-degree = 0).
+    ///
+    /// # Examples
+    /// ```rust
+    /// let mut g = RustDAG::new();
+    /// g.add_edges_from(vec![
+    ///   ("A".into(),"B".into()),
+    ///   ("B".into(),"C".into()),
+    ///   ("B".into(),"D".into()),
+    ///   ("E".into(),"B".into())
+    /// ], None).unwrap();
+    /// let mut roots = g.get_roots();
+    /// ```
     pub fn get_roots(&self) -> Vec<String> {
         self.graph
             .node_indices()

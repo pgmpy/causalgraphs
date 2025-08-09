@@ -45,7 +45,7 @@ install: python wasm r
 test: test-core test-python test-wasm test-r
 
 test-core:
-	cd $(RUST_CORE) && cargo test
+	cd $(RUST_CORE) && cargo test --tests
 
 test-python:
 	cd $(PY_BINDINGS) && pytest tests/
