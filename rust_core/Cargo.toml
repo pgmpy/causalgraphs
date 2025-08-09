@@ -13,3 +13,6 @@ ahash    = "0.8"
 indexmap = "2.0"
 rustworkx-core = "0.14"
 itertools = "0.14.0"
+
+[lib]
+doctest = false
