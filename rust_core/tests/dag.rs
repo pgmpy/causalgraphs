@@ -7,7 +7,8 @@ fn test_add_nodes_and_edges() {
     let mut dag = RustDAG::new();
     dag.add_node("A".to_string(), false).unwrap();
     dag.add_node("B".to_string(), false).unwrap();
-    dag.add_edge("A".to_string(), "B".to_string(), None).unwrap();
+    dag.add_edge("A".to_string(), "B".to_string(), None)
+        .unwrap();
     assert_eq!(dag.node_count(), 2);
     assert_eq!(dag.edge_count(), 1);
     assert!(dag.get_parents("B").unwrap().contains(&"A".to_string()));
@@ -22,19 +23,18 @@ fn test_active_trail_basic() {
             ("intel".to_string(), "grades".to_string()),
         ],
         None,
-    ).unwrap();
+    )
+    .unwrap();
 
-    let result = dag.active_trail_nodes(
-        vec!["diff".to_string()], 
-        None, 
-        false
-    ).unwrap();
-        
+    let result = dag
+        .active_trail_nodes(vec!["diff".to_string()], None, false)
+        .unwrap();
+
     let expected: HashSet<String> = vec!["diff".to_string(), "grades".to_string()]
-        .into_iter().collect();
+        .into_iter()
+        .collect();
     assert_eq!(result["diff"], expected);
 }
-
 
 #[test]
 fn test_active_trail_with_observed() {
@@ -45,25 +45,29 @@ fn test_active_trail_with_observed() {
             ("intel".to_string(), "grades".to_string()),
         ],
         None,
-    ).unwrap();
+    )
+    .unwrap();
 
-    let result = dag.active_trail_nodes(
-        vec!["diff".to_string(), "intel".to_string()],
-        Some(vec!["grades".to_string()]),
-        false
-    ).unwrap();
+    let result = dag
+        .active_trail_nodes(
+            vec!["diff".to_string(), "intel".to_string()],
+            Some(vec!["grades".to_string()]),
+            false,
+        )
+        .unwrap();
     // With grades observed, diff and intel should be in each other's active trail
     let expected_diff: HashSet<String> = vec!["diff".to_string(), "intel".to_string()]
-        .into_iter().collect();
+        .into_iter()
+        .collect();
     let expected_intel: HashSet<String> = vec!["diff".to_string(), "intel".to_string()]
-        .into_iter().collect();
-        
+        .into_iter()
+        .collect();
+
     assert_eq!(result["diff"], expected_diff);
     assert_eq!(result["intel"], expected_intel);
 }
 
-
- #[test]
+#[test]
 fn test_is_dconnected() {
     let mut dag = RustDAG::new();
     dag.add_edges_from(
@@ -74,16 +78,24 @@ fn test_is_dconnected() {
             ("intel".to_string(), "sat".to_string()),
         ],
         None,
-    ).unwrap();
+    )
+    .unwrap();
     // diff and intel are not d-connected (blocked by collider at grades)
-    assert_eq!(dag.is_dconnected("diff", "intel", None, false).unwrap(), false);
-    
+    assert_eq!(
+        dag.is_dconnected("diff", "intel", None, false).unwrap(),
+        false
+    );
+
     // grades and sat are d-connected through intel
-    assert_eq!(dag.is_dconnected("grades", "sat", None, false).unwrap(), true);
-    
+    assert_eq!(
+        dag.is_dconnected("grades", "sat", None, false).unwrap(),
+        true
+    );
+
     // diff and intel become d-connected when grades is observed
     assert_eq!(
-        dag.is_dconnected("diff", "intel", Some(vec!["grades".to_string()]), false).unwrap(), 
+        dag.is_dconnected("diff", "intel", Some(vec!["grades".to_string()]), false)
+            .unwrap(),
         true
     );
 }
@@ -96,13 +108,13 @@ fn test_are_neighbors() {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ],
-        None
-    ).unwrap();
+        None,
+    )
+    .unwrap();
     assert_eq!(dag.are_neighbors("A", "B").unwrap(), true);
     assert_eq!(dag.are_neighbors("B", "A").unwrap(), true); // Should work both ways
     assert_eq!(dag.are_neighbors("A", "C").unwrap(), false);
 }
-
 
 #[test]
 fn test_minimal_dseparator_simple() {
@@ -112,13 +124,13 @@ fn test_minimal_dseparator_simple() {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ],
-        None
-    ).unwrap();
+        None,
+    )
+    .unwrap();
     let result = dag.minimal_dseparator("A", "C", false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
-
 
 #[test]
 fn test_minimal_dseparator_complex() {
@@ -130,11 +142,12 @@ fn test_minimal_dseparator_complex() {
             ("C".to_string(), "D".to_string()),
             ("A".to_string(), "E".to_string()),
             ("E".to_string(), "D".to_string()),
-        ], None
-    ).unwrap();
+        ],
+        None,
+    )
+    .unwrap();
     let result = dag.minimal_dseparator("A", "D", false).unwrap();
-    let expected: HashSet<String> = vec!["C".to_string(), "E".to_string()]
-        .into_iter().collect();
+    let expected: HashSet<String> = vec!["C".to_string(), "E".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
 
@@ -149,8 +162,9 @@ fn test_minimal_dseparator_latent_case_1() {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ],
-        None
-    ).unwrap();
+        None,
+    )
+    .unwrap();
     // No d-separator should exist because B is latent
     let result = dag.minimal_dseparator("A", "C", false).unwrap();
     assert_eq!(result, None);
@@ -169,12 +183,17 @@ fn test_minimal_dseparator_latent_case_2() {
             ("D".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ],
-        None
-    ).unwrap();
+        None,
+    )
+    .unwrap();
 
     let result = dag.minimal_dseparator("A", "C", false).unwrap();
     let expected: HashSet<String> = vec!["D".to_string()].into_iter().collect();
-    assert_eq!(result, Some(expected), "Expected D to d-separate A and C when B is latent");
+    assert_eq!(
+        result,
+        Some(expected),
+        "Expected D to d-separate A and C when B is latent"
+    );
 }
 
 #[test]
@@ -191,12 +210,12 @@ fn test_minimal_dseparator_latent_case_3() {
             ("A".to_string(), "D".to_string()),
             ("D".to_string(), "C".to_string()),
         ],
-        None
-    ).unwrap();
+        None,
+    )
+    .unwrap();
     let result = dag.minimal_dseparator("A", "C", false).unwrap();
     assert_eq!(result, None, "Expected no d-separator when D is latent with multiple paths A→B→C and A→D→C (D is unobservable, because of its latent status)");
 }
-
 
 #[test]
 fn test_minimal_dseparator_latent_case_5() {
@@ -215,24 +234,25 @@ fn test_minimal_dseparator_latent_case_5() {
             ("A".to_string(), "D".to_string()),
             ("D".to_string(), "E".to_string()),
             ("E".to_string(), "C".to_string()),
-        ], None
-    ).unwrap();
+        ],
+        None,
+    )
+    .unwrap();
     let result = dag.minimal_dseparator("A", "C", false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string(), "D".to_string()].into_iter().collect();
-    assert_eq!(result, Some(expected), "Expected [B, D] to d-separate A and C when E is latent(Observe B & parent of C => D)");
+    assert_eq!(
+        result,
+        Some(expected),
+        "Expected [B, D] to d-separate A and C when E is latent(Observe B & parent of C => D)"
+    );
 }
-
 
 #[test]
 fn test_minimal_dseparator_adjacent_error() {
     let mut dag = RustDAG::new();
-    dag.add_edges_from(
-        vec![
-            ("A".to_string(), "B".to_string()),
-        ], 
-        None
-    ).unwrap();
-    
+    dag.add_edges_from(vec![("A".to_string(), "B".to_string())], None)
+        .unwrap();
+
     let result = dag.minimal_dseparator("A", "B", false);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("adjacent"));
