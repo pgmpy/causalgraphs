@@ -6,7 +6,7 @@ WASM_BINDINGS := wasm_bindings
 R_BINDINGS := r_bindings/causalgraphs
 
 # Build targets
-.PHONY: all core python wasm r install test clean
+.PHONY: all core python wasm r install test format clean
 
 all: core python wasm r
 
@@ -55,6 +55,10 @@ test-wasm:
 
 test-r:
 	cd $(R_BINDINGS) && Rscript -e 'devtools::test()'
+
+format:
+	@echo "\n=== Formatting Code ==="
+	cargo fmt --all
 
 clean:
 	@echo "\n=== Cleaning All Build Artifacts ==="
