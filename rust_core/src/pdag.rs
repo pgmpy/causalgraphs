@@ -1,6 +1,7 @@
 use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet};
+use petgraph::visit::Dfs;
 
 use crate::RustDAG;
 
@@ -128,11 +129,13 @@ impl RustPDAG {
 
         let successors: HashSet<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Outgoing)
+            .filter(|&idx| self.reverse_node_map.contains_key(&idx))
             .map(|idx| self.reverse_node_map[&idx].clone())
             .collect();
 
         let predecessors: HashSet<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Incoming)
+            .filter(|&idx| self.reverse_node_map.contains_key(&idx))
             .map(|idx| self.reverse_node_map[&idx].clone())
             .collect();
 
@@ -147,8 +150,11 @@ impl RustPDAG {
         let children: HashSet<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Outgoing)
             .filter(|&idx| {
-                let child = &self.reverse_node_map[&idx];
-                self.directed_edges.contains(&(node.to_string(), child.to_string()))
+                if let Some(child) = self.reverse_node_map.get(&idx) {
+                    self.directed_edges.contains(&(node.to_string(), child.to_string()))
+                } else {
+                    false // Skip invalid indices
+                }
             })
             .map(|idx| self.reverse_node_map[&idx].clone())
             .collect();
@@ -164,8 +170,11 @@ impl RustPDAG {
         let parents: HashSet<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Incoming)
             .filter(|&idx| {
-                let parent = &self.reverse_node_map[&idx];
-                self.directed_edges.contains(&(parent.to_string(), node.to_string()))
+                if let Some(parent) = self.reverse_node_map.get(&idx) {
+                    self.directed_edges.contains(&(parent.to_string(), node.to_string()))
+                } else {
+                    false // Skip invalid indices
+                }
             })
             .map(|idx| self.reverse_node_map[&idx].clone())
             .collect();
@@ -192,8 +201,11 @@ impl RustPDAG {
         let neighbors: HashSet<String> = self.graph
             .neighbors_directed(*node_idx, Direction::Outgoing)
             .filter(|&idx| {
-                let neighbor = &self.reverse_node_map[&idx];
-                self.has_undirected_edge(node, neighbor)
+                if let Some(neighbor) = self.reverse_node_map.get(&idx) {
+                    self.has_undirected_edge(node, neighbor)
+                } else {
+                    false // Skip invalid indices
+                }
             })
             .map(|idx| self.reverse_node_map[&idx].clone())
             .collect();
@@ -235,5 +247,339 @@ impl RustPDAG {
 
         dag
     }
+
+    /// Orient an undirected edge u - v as u -> v
+    pub fn orient_undirected_edge(&mut self, u: &str, v: &str, inplace: bool) -> Result<Option<RustPDAG>, String> {
+        let mut pdag = if inplace { 
+            self
+        } else { 
+            &mut self.copy()
+        };
+
+        // Check if undirected edge exists
+        let edge_exists = if pdag.undirected_edges.contains(&(u.to_string(), v.to_string())) {
+            pdag.undirected_edges.remove(&(u.to_string(), v.to_string()));
+            true
+        } else if pdag.undirected_edges.contains(&(v.to_string(), u.to_string())) {
+            pdag.undirected_edges.remove(&(v.to_string(), u.to_string()));
+            true
+        } else {
+            false
+        };
+
+        if !edge_exists {
+            return Err(format!("Undirected Edge {} - {} not present in the PDAG", u, v));
+        }
+
+        // Remove the reverse edge from the graph
+        let u_idx = pdag.node_map[u];
+        let v_idx = pdag.node_map[v];
+        
+        // Find and remove the edge v -> u
+        if let Some(edge_idx) = pdag.graph.find_edge(v_idx, u_idx) {
+            pdag.graph.remove_edge(edge_idx);
+        }
+
+        // Add to directed edges
+        pdag.directed_edges.insert((u.to_string(), v.to_string()));
+
+        if inplace {
+            Ok(None)
+        } else {
+            Ok(Some(pdag.clone()))
+        }
+    }
+
+    /// Check if orienting u -> v would create a new unshielded collider
+    fn check_new_unshielded_collider(&self, u: &str, v: &str) -> Result<bool, String> {
+        let parents = self.directed_parents(v)?;
+        
+        for parent in parents {
+            if parent != u && !self.is_adjacent(u, &parent) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Check if there's a path from source to target in the directed subgraph
+    pub fn has_directed_path(&self, source: &str, target: &str) -> Result<bool, String> {
+        let source_idx = self.node_map.get(source)
+            .ok_or_else(|| format!("Node {} not found", source))?;
+        let target_idx = self.node_map.get(target)
+            .ok_or_else(|| format!("Node {} not found", target))?;
+
+        let directed_graph = self.directed_graph();
+        let mut dfs = Dfs::new(&directed_graph.graph, *source_idx);
+        
+        while let Some(nx) = dfs.next(&directed_graph.graph) {
+            if nx == *target_idx {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+
+    /// Apply Meek's rules to orient undirected edges
+    pub fn apply_meeks_rules(&mut self, apply_r4: bool, inplace: bool) -> Result<Option<RustPDAG>, String> {
+        let mut pdag = if inplace {
+            self
+        } else {
+            &mut self.copy()
+        };
+
+        let mut changed = true;
+        while changed {
+            changed = false;
+            let nodes: Vec<String> = pdag.nodes();
+
+            // Rule 1: If X -> Y - Z and
+            //            (X not adj Z) and
+            //            (adding Y -> Z doesn't create cycle) and
+            //            (adding Y -> Z doesn't create an unshielded collider) =>  Y → Z
+            for y in &nodes {
+                if !pdag.node_map.contains_key(y) {
+                    continue;
+                }
+                let directed_parents = pdag.directed_parents(y)?;
+                let undirected_neighbors = pdag.undirected_neighbors(y)?;
+
+                for x in &directed_parents {
+                    for z in &undirected_neighbors {
+                        if !pdag.is_adjacent(x, z)
+                            && !pdag.check_new_unshielded_collider(y, z)?
+                            && !pdag.has_directed_path(z, y)?
+                        {
+                            // Ensure x -> y exists
+                            if pdag.has_directed_edge(x, y) {
+                                if pdag.orient_undirected_edge(y, z, true).is_ok() {
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if changed { break; }
+                }
+                if changed { break; }
+            }
+
+            // Rule 2: If X -> Z and Z -> Y  and X - Y =>  X -> Y
+            for z in &nodes {
+                if !pdag.node_map.contains_key(z) {
+                    continue;
+                }
+                let parents = pdag.directed_parents(z)?;
+                let children = pdag.directed_children(z)?;
+
+                for x in &parents {
+                    for y in &children {
+                        if pdag.has_undirected_edge(x, y) {
+                            // Ensure x -> z and z -> y exist
+                            if pdag.has_directed_edge(x, z) && pdag.has_directed_edge(z, y) {
+                                if pdag.orient_undirected_edge(x, y, true).is_ok() {
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if changed { break; }
+                }
+                if changed { break; }
+            }
+
+            // Rule 3
+            for x in &nodes {
+                if !pdag.node_map.contains_key(x) {
+                    continue;
+                }
+                let undirected_nbs: Vec<String> = pdag.undirected_neighbors(x)?.into_iter().collect();
+
+                if undirected_nbs.len() < 3 {
+                    continue;
+                }
+
+                for i in 0..undirected_nbs.len() {
+                    for j in (i + 1)..undirected_nbs.len() {
+                        for k in (j + 1)..undirected_nbs.len() {
+                            let (y, z, w) = (&undirected_nbs[i], &undirected_nbs[j], &undirected_nbs[k]);
+
+                            if pdag.has_directed_edge(y, w) && pdag.has_directed_edge(z, w) {
+                                if pdag.orient_undirected_edge(x, w, true).is_ok() {
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if changed { break; }
+                    }
+                    if changed { break; }
+                }
+                if changed { break; }
+            }
+
+            // Rule 4
+            if apply_r4 {
+                for c in &nodes {
+                    if !pdag.node_map.contains_key(c) {
+                        continue;
+                    }
+                    let children = pdag.directed_children(c)?;
+                    let parents = pdag.directed_parents(c)?;
+
+                    for b in &children {
+                        for d in &parents {
+                            if b == d || pdag.is_adjacent(b, d) {
+                                continue;
+                            }
+
+                            let b_undirected = pdag.undirected_neighbors(b)?;
+                            let c_neighbors = pdag.all_neighbors(c)?;
+                            let d_undirected = pdag.undirected_neighbors(d)?;
+
+                            for a in &b_undirected {
+                                if c_neighbors.contains(a) && d_undirected.contains(a) {
+                                    if pdag.orient_undirected_edge(a, b, true).is_ok() {
+                                        changed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if changed { break; }
+                        }
+                        if changed { break; }
+                    }
+                    if changed { break; }
+                }
+            }
+        }
+
+        if inplace {
+            Ok(None)
+        } else {
+            Ok(Some(pdag.clone()))
+        }
+    }
+
+
+    pub fn to_dag(&self) -> Result<RustDAG, String> {
+        let mut dag = RustDAG::new();
+        
+        // Add all nodes with latent status
+        for node in self.nodes() {
+            let is_latent = self.latents.contains(&node);
+            dag.add_node(node.clone(), is_latent)?;
+        }
+        
+        // Add all directed edges
+        for (u, v) in &self.directed_edges {
+            dag.add_edge(u.clone(), v.clone(), None)?;
+        }
+
+        let mut pdag_copy = self.copy();
+        
+        // Add undirected edges to dag before node removal
+        for (u, v) in &self.undirected_edges {
+            if !dag.has_edge(u, v) && !dag.has_edge(v, u) {
+                // Try adding u -> v, if it creates cycle, add v -> u
+                if dag.add_edge(u.clone(), v.clone(), None).is_err() {
+                    dag.add_edge(v.clone(), u.clone(), None)?;
+                }
+            }
+        }
+        
+        while !pdag_copy.nodes().is_empty() {
+            let nodes: Vec<String> = pdag_copy.nodes(); // Get fresh node list
+            let mut found = false;
+            
+            for x in &nodes {
+                // Check if node still exists
+                if !pdag_copy.node_map.contains_key(x) {
+                    continue;
+                }
+                
+                // Find nodes with no directed outgoing edges
+                let directed_children = pdag_copy.directed_children(x)?;
+                let undirected_neighbors = pdag_copy.undirected_neighbors(x)?;
+                let directed_parents = pdag_copy.directed_parents(x)?;
+
+                // Check if undirected neighbors + parents form a clique
+                let mut neighbors_are_clique = true;
+                for y in &undirected_neighbors {
+                    for z in &directed_parents {
+                        if y != z && !pdag_copy.is_adjacent(y, z) {
+                            neighbors_are_clique = false;
+                            break;
+                        }
+                    }
+                    if !neighbors_are_clique { break; }
+                }
+
+                if directed_children.is_empty() && (undirected_neighbors.is_empty() || neighbors_are_clique) {
+                    found = true;
+                    
+                    // Add all incoming edges to DAG
+                    let all_predecessors = pdag_copy.all_neighbors(x)?;
+                    for y in &all_predecessors {
+                        if pdag_copy.is_adjacent(y, x) && !dag.has_edge(x, y) {
+                            dag.add_edge(y.clone(), x.clone(), None)?;
+                        }
+                    }
+                    
+                    // Remove node from pdag_copy
+                    pdag_copy.remove_node(x)?;
+                    break; // Break to refresh node list
+                }
+            }
+
+            if !found {
+                // Handle remaining edges arbitrarily, ensuring no cycles
+                let remaining_edges: Vec<(String, String)> = pdag_copy.undirected_edges.iter().cloned().collect();
+                for (u, v) in remaining_edges {
+                    if pdag_copy.node_map.contains_key(&u) && pdag_copy.node_map.contains_key(&v) && !dag.has_edge(&v, &u) {
+                        if let Ok(()) = dag.add_edge(u.clone(), v.clone(), None) {
+                            pdag_copy.orient_undirected_edge(&u, &v, true)?;
+                        } else {
+                            // Try reverse direction if adding u -> v creates a cycle
+                            if !dag.has_edge(&u, &v) {
+                                if let Ok(()) = dag.add_edge(v.clone(), u.clone(), None) {
+                                    pdag_copy.orient_undirected_edge(&v, &u, true)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        Ok(dag)
+    }
+
+    /// Remove a node from the PDAG
+    fn remove_node(&mut self, node: &str) -> Result<(), String> {
+        let node_idx = self.node_map.get(node)
+            .ok_or_else(|| format!("Node {} not found", node))?;
+
+        // Remove from edge sets
+        self.directed_edges.retain(|(u, v)| u != node && v != node);
+        self.undirected_edges.retain(|(u, v)| u != node && v != node);
+        
+        // Remove from latents
+        self.latents.remove(node);
+        
+        // Remove from graph
+        self.graph.remove_node(*node_idx);
+        
+        // Remove from mappings
+        self.reverse_node_map.remove(node_idx);
+        self.node_map.remove(node);
+
+        Ok(())
+    }
+
+
 
 }
