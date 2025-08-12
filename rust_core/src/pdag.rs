@@ -5,7 +5,6 @@ use petgraph::visit::Dfs;
 
 use crate::RustDAG;
 
-
 #[derive(Debug, Clone)]
 pub struct RustPDAG {
     pub graph: DiGraph<String, f64>,
@@ -15,6 +14,7 @@ pub struct RustPDAG {
     pub undirected_edges: HashSet<(String, String)>,
     pub latents: HashSet<String>,
 }
+
 impl RustPDAG {
     pub fn new() -> Self {
         RustPDAG {
@@ -27,9 +27,9 @@ impl RustPDAG {
         }
     }
 
-    /// Get all edges in the graph
+    /// Get all edges in the graph - DETERMINISTIC
     pub fn edges(&self) -> Vec<(String, String)> {
-        self.graph
+        let mut edges: Vec<(String, String)> = self.graph
             .edge_indices()
             .map(|edge_idx| {
                 let (source, target) = self.graph.edge_endpoints(edge_idx).unwrap();
@@ -38,15 +38,18 @@ impl RustPDAG {
                     self.reverse_node_map[&target].clone(),
                 )
             })
-            .collect()
+            .collect();
+        edges.sort();
+        edges
     }
 
     /// Get all nodes in the graph
     pub fn nodes(&self) -> Vec<String> {
         let mut nodes: Vec<String> = self.node_map.keys().cloned().collect();
-        nodes.sort(); // Sort alphabetically for deterministic order
+        nodes.sort();
         nodes
     }
+
     /// Adds a single node to the PDAG.
     pub fn add_node(&mut self, node: String, latent: bool) -> Result<(), String> {
         if !self.node_map.contains_key(&node) {
@@ -230,19 +233,23 @@ impl RustPDAG {
         }
     }
 
-    /// Returns a subgraph containing only directed edges as a RustDAG.
+    /// Returns a subgraph containing only directed edges as a RustDAG - DETERMINISTIC
     pub fn directed_graph(&self) -> RustDAG {
         let mut dag = RustDAG::new();
 
-        // Add all nodes with their latent status
-        for node in self.node_map.keys() {
-            let is_latent = self.latents.contains(node);
+        // Add all nodes with their latent status - DETERMINISTIC ORDER
+        let mut nodes: Vec<String> = self.node_map.keys().cloned().collect();
+        nodes.sort();
+        for node in nodes {
+            let is_latent = self.latents.contains(&node);
             dag.add_node(node.clone(), is_latent).unwrap();
         }
 
         // Add only directed edges
-        for (u, v) in &self.directed_edges {
-            dag.add_edge(u.clone(), v.clone(), None).unwrap();
+        let mut directed_edges: Vec<(String, String)> = self.directed_edges.iter().cloned().collect();
+        directed_edges.sort();
+        for (u, v) in directed_edges {
+            dag.add_edge(u, v, None).unwrap();
         }
 
         dag
@@ -320,40 +327,50 @@ impl RustPDAG {
         Ok(false)
     }
 
-
     /// Apply Meek's rules to orient undirected edges
     pub fn apply_meeks_rules(&mut self, apply_r4: bool, inplace: bool) -> Result<Option<RustPDAG>, String> {
-        let mut pdag = if inplace {
-            self
+        if inplace {
+            // Work directly on self
+            self.apply_meeks_rules_internal(apply_r4)?;
+            Ok(None)
         } else {
-            &mut self.copy()
-        };
+            // Work on a copy
+            let mut pdag_copy = self.copy();
+            pdag_copy.apply_meeks_rules_internal(apply_r4)?;
+            Ok(Some(pdag_copy))
+        }
+    }
 
+    /// Internal method that applies Meek's rules to the current instance
+    fn apply_meeks_rules_internal(&mut self, apply_r4: bool) -> Result<(), String> {
         let mut changed = true;
         while changed {
             changed = false;
-            let nodes: Vec<String> = pdag.nodes();
+            let nodes: Vec<String> = self.nodes();
 
             // Rule 1: If X -> Y - Z and
             //            (X not adj Z) and
             //            (adding Y -> Z doesn't create cycle) and
             //            (adding Y -> Z doesn't create an unshielded collider) =>  Y → Z
             for y in &nodes {
-                if !pdag.node_map.contains_key(y) {
+                if !self.node_map.contains_key(y) {
                     continue;
                 }
-                let directed_parents = pdag.directed_parents(y)?;
-                let undirected_neighbors = pdag.undirected_neighbors(y)?;
+                // Convert HashSets to sorted vectors for deterministic iteration
+                let mut directed_parents: Vec<String> = self.directed_parents(y)?.into_iter().collect();
+                directed_parents.sort();
+                let mut undirected_neighbors: Vec<String> = self.undirected_neighbors(y)?.into_iter().collect();
+                undirected_neighbors.sort();
 
                 for x in &directed_parents {
                     for z in &undirected_neighbors {
-                        if !pdag.is_adjacent(x, z)
-                            && !pdag.check_new_unshielded_collider(y, z)?
-                            && !pdag.has_directed_path(z, y)?
+                        if !self.is_adjacent(x, z)
+                            && !self.check_new_unshielded_collider(y, z)?
+                            && !self.has_directed_path(z, y)?
                         {
                             // Ensure x -> y exists
-                            if pdag.has_directed_edge(x, y) {
-                                if pdag.orient_undirected_edge(y, z, true).is_ok() {
+                            if self.has_directed_edge(x, y) {
+                                if self.orient_undirected_edge(y, z, true).is_ok() {
                                     changed = true;
                                     break;
                                 }
@@ -367,18 +384,21 @@ impl RustPDAG {
 
             // Rule 2: If X -> Z and Z -> Y  and X - Y =>  X -> Y
             for z in &nodes {
-                if !pdag.node_map.contains_key(z) {
+                if !self.node_map.contains_key(z) {
                     continue;
                 }
-                let parents = pdag.directed_parents(z)?;
-                let children = pdag.directed_children(z)?;
+                // Convert HashSets to sorted vectors for deterministic iteration
+                let mut parents: Vec<String> = self.directed_parents(z)?.into_iter().collect();
+                parents.sort();
+                let mut children: Vec<String> = self.directed_children(z)?.into_iter().collect();
+                children.sort();
 
                 for x in &parents {
                     for y in &children {
-                        if pdag.has_undirected_edge(x, y) {
+                        if self.has_undirected_edge(x, y) {
                             // Ensure x -> z and z -> y exist
-                            if pdag.has_directed_edge(x, z) && pdag.has_directed_edge(z, y) {
-                                if pdag.orient_undirected_edge(x, y, true).is_ok() {
+                            if self.has_directed_edge(x, z) && self.has_directed_edge(z, y) {
+                                if self.orient_undirected_edge(x, y, true).is_ok() {
                                     changed = true;
                                     break;
                                 }
@@ -390,12 +410,14 @@ impl RustPDAG {
                 if changed { break; }
             }
 
-            // Rule 3
+            // Rule 3: If X - Y, X - Z, X - W and Y -> W, Z -> W => X -> W
             for x in &nodes {
-                if !pdag.node_map.contains_key(x) {
+                if !self.node_map.contains_key(x) {
                     continue;
                 }
-                let undirected_nbs: Vec<String> = pdag.undirected_neighbors(x)?.into_iter().collect();
+                // Convert HashSet to sorted vector for deterministic iteration
+                let mut undirected_nbs: Vec<String> = self.undirected_neighbors(x)?.into_iter().collect();
+                undirected_nbs.sort();
 
                 if undirected_nbs.len() < 3 {
                     continue;
@@ -406,8 +428,8 @@ impl RustPDAG {
                         for k in (j + 1)..undirected_nbs.len() {
                             let (y, z, w) = (&undirected_nbs[i], &undirected_nbs[j], &undirected_nbs[k]);
 
-                            if pdag.has_directed_edge(y, w) && pdag.has_directed_edge(z, w) {
-                                if pdag.orient_undirected_edge(x, w, true).is_ok() {
+                            if self.has_directed_edge(y, w) && self.has_directed_edge(z, w) {
+                                if self.orient_undirected_edge(x, w, true).is_ok() {
                                     changed = true;
                                     break;
                                 }
@@ -423,25 +445,31 @@ impl RustPDAG {
             // Rule 4
             if apply_r4 {
                 for c in &nodes {
-                    if !pdag.node_map.contains_key(c) {
+                    if !self.node_map.contains_key(c) {
                         continue;
                     }
-                    let children = pdag.directed_children(c)?;
-                    let parents = pdag.directed_parents(c)?;
+
+                    let mut children: Vec<String> = self.directed_children(c)?.into_iter().collect();
+                    children.sort();
+                    let mut parents: Vec<String> = self.directed_parents(c)?.into_iter().collect();
+                    parents.sort();
 
                     for b in &children {
                         for d in &parents {
-                            if b == d || pdag.is_adjacent(b, d) {
+                            if b == d || self.is_adjacent(b, d) {
                                 continue;
                             }
 
-                            let b_undirected = pdag.undirected_neighbors(b)?;
-                            let c_neighbors = pdag.all_neighbors(c)?;
-                            let d_undirected = pdag.undirected_neighbors(d)?;
+                            let mut b_undirected: Vec<String> = self.undirected_neighbors(b)?.into_iter().collect();
+                            b_undirected.sort();
+                            let mut c_neighbors: Vec<String> = self.all_neighbors(c)?.into_iter().collect();
+                            c_neighbors.sort();
+                            let mut d_undirected: Vec<String> = self.undirected_neighbors(d)?.into_iter().collect();
+                            d_undirected.sort();
 
                             for a in &b_undirected {
                                 if c_neighbors.contains(a) && d_undirected.contains(a) {
-                                    if pdag.orient_undirected_edge(a, b, true).is_ok() {
+                                    if self.orient_undirected_edge(a, b, true).is_ok() {
                                         changed = true;
                                         break;
                                     }
@@ -456,13 +484,8 @@ impl RustPDAG {
             }
         }
 
-        if inplace {
-            Ok(None)
-        } else {
-            Ok(Some(pdag.clone()))
-        }
+        Ok(())
     }
-
 
     pub fn to_dag(&self) -> Result<RustDAG, String> {
         let mut dag = RustDAG::new();
@@ -473,25 +496,29 @@ impl RustPDAG {
             dag.add_node(node.clone(), is_latent)?;
         }
         
-        // Add all directed edges
-        for (u, v) in &self.directed_edges {
-            dag.add_edge(u.clone(), v.clone(), None)?;
+        // Add all directed edg
+        let mut directed_edges_sorted: Vec<(String, String)> = self.directed_edges.iter().cloned().collect();
+        directed_edges_sorted.sort();
+        for (u, v) in directed_edges_sorted {
+            dag.add_edge(u, v, None)?;
         }
 
         let mut pdag_copy = self.copy();
         
         // Add undirected edges to dag before node removal
-        for (u, v) in &self.undirected_edges {
-            if !dag.has_edge(u, v) && !dag.has_edge(v, u) {
+        let mut undirected_edges_sorted: Vec<(String, String)> = self.undirected_edges.iter().cloned().collect();
+        undirected_edges_sorted.sort();
+        for (u, v) in undirected_edges_sorted {
+            if !dag.has_edge(&u, &v) && !dag.has_edge(&v, &u) {
                 // Try adding u -> v, if it creates cycle, add v -> u
                 if dag.add_edge(u.clone(), v.clone(), None).is_err() {
-                    dag.add_edge(v.clone(), u.clone(), None)?;
+                    dag.add_edge(v, u, None)?;
                 }
             }
         }
         
         while !pdag_copy.nodes().is_empty() {
-            let nodes: Vec<String> = pdag_copy.nodes(); // Get fresh node list
+            let nodes: Vec<String> = pdag_copy.nodes();
             let mut found = false;
             
             for x in &nodes {
@@ -502,8 +529,10 @@ impl RustPDAG {
                 
                 // Find nodes with no directed outgoing edges
                 let directed_children = pdag_copy.directed_children(x)?;
-                let undirected_neighbors = pdag_copy.undirected_neighbors(x)?;
-                let directed_parents = pdag_copy.directed_parents(x)?;
+                let mut undirected_neighbors: Vec<String> = pdag_copy.undirected_neighbors(x)?.into_iter().collect();
+                undirected_neighbors.sort();
+                let mut directed_parents: Vec<String> = pdag_copy.directed_parents(x)?.into_iter().collect();
+                directed_parents.sort();
 
                 // Check if undirected neighbors + parents form a clique
                 let mut neighbors_are_clique = true;
@@ -521,7 +550,8 @@ impl RustPDAG {
                     found = true;
                     
                     // Add all incoming edges to DAG
-                    let all_predecessors = pdag_copy.all_neighbors(x)?;
+                    let mut all_predecessors: Vec<String> = pdag_copy.all_neighbors(x)?.into_iter().collect();
+                    all_predecessors.sort();
                     for y in &all_predecessors {
                         if pdag_copy.is_adjacent(y, x) && !dag.has_edge(x, y) {
                             dag.add_edge(y.clone(), x.clone(), None)?;
@@ -536,7 +566,8 @@ impl RustPDAG {
 
             if !found {
                 // Handle remaining edges arbitrarily, ensuring no cycles
-                let remaining_edges: Vec<(String, String)> = pdag_copy.undirected_edges.iter().cloned().collect();
+                let mut remaining_edges: Vec<(String, String)> = pdag_copy.undirected_edges.iter().cloned().collect();
+                remaining_edges.sort(); // Deterministic order
                 for (u, v) in remaining_edges {
                     if pdag_copy.node_map.contains_key(&u) && pdag_copy.node_map.contains_key(&v) && !dag.has_edge(&v, &u) {
                         if let Ok(()) = dag.add_edge(u.clone(), v.clone(), None) {
@@ -579,7 +610,4 @@ impl RustPDAG {
 
         Ok(())
     }
-
-
-
 }
