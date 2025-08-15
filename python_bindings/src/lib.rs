@@ -118,6 +118,29 @@ impl PyRustPDAG {
         self.inner.edges()
     }
 
+    /// Get all directed edges in the PDAG.
+    pub fn directed_edges(&self) -> Vec<(String, String)> {
+        let mut edges: Vec<(String, String)> = self.inner.directed_edges.iter().cloned().collect();
+        edges.sort();
+        edges
+    }
+
+    /// Get all undirected edges in the PDAG (returns one direction per pair).
+    pub fn undirected_edges(&self) -> Vec<(String, String)> {
+        let mut edges: Vec<(String, String)> = self.inner.undirected_edges.iter().cloned().collect();
+        edges.sort();
+        edges
+    }
+
+    /// Orient an undirected edge u - v as u -> v.
+    #[pyo3(signature = (u, v, inplace = false))]
+    pub fn orient_undirected_edge(&mut self, u: String, v: String, inplace: bool) -> PyResult<Option<PyRustPDAG>> {
+        self.inner
+            .orient_undirected_edge(&u, &v, inplace)
+            .map(|opt| opt.map(|pdag| PyRustPDAG { inner: pdag }))
+            .map_err(PyValueError::new_err)
+    }
+
     /// Apply Meek's rules to orient undirected edges.
     #[pyo3(signature = (apply_r4 = true, inplace = true))]
     pub fn apply_meeks_rules(&mut self, apply_r4: bool, inplace: bool) -> PyResult<Option<PyRustPDAG>> {
@@ -150,6 +173,13 @@ impl PyRustPDAG {
     /// Get the number of edges in the PDAG (counting undirected edges once).
     pub fn edge_count(&self) -> usize {
         self.inner.directed_edges.len() + self.inner.undirected_edges.len()
+    }
+
+    // Copy PDAG to a new instance.
+    pub fn copy(&self) -> Self {
+        PyRustPDAG {
+            inner: self.inner.clone(),
+        }
     }
 
     /// Get the set of latent nodes.
