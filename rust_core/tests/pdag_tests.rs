@@ -293,6 +293,28 @@ fn test_apply_meeks_rules_no_change() {
     assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
 }
 
+
+#[test]
+fn test_apply_meeks_rules_no_change_2() {
+    // Test case where no rules apply
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "B".to_string()), ("D".to_string(), "C".to_string()), ("D".to_string(), "B".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("B".to_string(), "C".to_string())]), None, false).unwrap();
+    
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("A".to_string(), "B".to_string()),
+        ("D".to_string(), "C".to_string()),
+        ("D".to_string(), "B".to_string()),
+        ("B".to_string(), "C".to_string()),
+    ].into_iter().collect();
+    
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+}
+
+
+
+
 #[test]
 fn test_apply_meeks_rules_inplace() {
     // Test inplace modification
@@ -307,6 +329,119 @@ fn test_apply_meeks_rules_inplace() {
                HashSet::from_iter(vec![("A".to_string(), "B".to_string()), ("B".to_string(), "C".to_string())]));
 }
 
+
+#[test]
+fn test_meeks_rules_perkovic_2017() {
+    // Test case from Perkoviċ et al., 2017
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("V1".to_string(), "X".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("X".to_string(), "V2".to_string()), ("V2".to_string(), "Y".to_string()), ("X".to_string(), "Y".to_string())]), None, false).unwrap();
+    
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("V1".to_string(), "X".to_string()), 
+        ("X".to_string(), "V2".to_string()), 
+        ("X".to_string(), "Y".to_string()), 
+        ("V2".to_string(), "Y".to_string()), 
+        ("Y".to_string(), "V2".to_string())
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("Y".to_string(), "X".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("V1".to_string(), "X".to_string()), ("X".to_string(), "V2".to_string()), ("V2".to_string(), "Y".to_string())]), None, false).unwrap();
+
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("X".to_string(), "V1".to_string()),
+        ("Y".to_string(), "X".to_string()),
+        ("X".to_string(), "V2".to_string()),
+        ("V2".to_string(), "X".to_string()),
+        ("V2".to_string(), "Y".to_string()),
+        ("Y".to_string(), "V2".to_string()),
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+}
+
+
+#[test]
+fn test_meeks_rules_bang_2024() {
+    // Test case from Bang et al., 2024
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("B".to_string(), "D".to_string()), ("C".to_string(), "D".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "D".to_string()), ("A".to_string(), "C".to_string())]), None, false).unwrap();
+
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("B".to_string(), "D".to_string()), 
+        ("D".to_string(), "A".to_string()), 
+        ("C".to_string(), "A".to_string()), 
+        ("C".to_string(), "D".to_string())
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "B".to_string()), ("C".to_string(), "B".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("D".to_string(), "B".to_string()), ("D".to_string(), "A".to_string()), ("D".to_string(), "C".to_string())]), None, false).unwrap();
+
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("A".to_string(), "B".to_string()),
+        ("C".to_string(), "B".to_string()),
+        ("D".to_string(), "B".to_string()),
+        ("D".to_string(), "A".to_string()),
+        ("A".to_string(), "D".to_string()),
+        ("D".to_string(), "C".to_string()),
+        ("C".to_string(), "D".to_string()),
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+}
+
+#[test]
+fn test_meeks_rules_complex_cases() {
+    let undirected_edges = vec![("A".to_string(), "C".to_string()), ("B".to_string(), "C".to_string()), ("D".to_string(), "C".to_string())];
+    let directed_edges = vec![("B".to_string(), "D".to_string()), ("D".to_string(), "A".to_string())];
+
+    // With apply_r4 = true
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(directed_edges.clone()), None, true).unwrap();
+    pdag.add_edges_from(Some(undirected_edges.clone()), None, false).unwrap();
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges_r4: HashSet<(String, String)> = vec![
+        ("C".to_string(), "A".to_string()),
+        ("C".to_string(), "B".to_string()),
+        ("B".to_string(), "C".to_string()),
+        ("B".to_string(), "D".to_string()),
+        ("D".to_string(), "A".to_string()),
+        ("D".to_string(), "C".to_string()),
+        ("C".to_string(), "D".to_string()),
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges_r4);
+
+    // With apply_r4 = false
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(directed_edges.clone()), None, true).unwrap();
+    pdag.add_edges_from(Some(undirected_edges.clone()), None, false).unwrap();
+    let cpdag = pdag.apply_meeks_rules(false, false).unwrap().unwrap();
+    let expected_edges_no_r4: HashSet<(String, String)> = vec![
+        ("A".to_string(), "C".to_string()),
+        ("C".to_string(), "A".to_string()),
+        ("C".to_string(), "B".to_string()),
+        ("B".to_string(), "C".to_string()),
+        ("B".to_string(), "D".to_string()),
+        ("D".to_string(), "A".to_string()),
+        ("D".to_string(), "C".to_string()),
+        ("C".to_string(), "D".to_string()),
+    ].into_iter().collect();
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges_no_r4);
+
+    // With apply_r4 = false and inplace = true
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(directed_edges.clone()), None, true).unwrap();
+    pdag.add_edges_from(Some(undirected_edges.clone()), None, false).unwrap();
+    pdag.apply_meeks_rules(false, true).unwrap();
+    assert_eq!(pdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges_no_r4);
+}
 
 
 #[test]

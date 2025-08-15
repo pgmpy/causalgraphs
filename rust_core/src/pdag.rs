@@ -364,16 +364,10 @@ impl RustPDAG {
 
                 for x in &directed_parents {
                     for z in &undirected_neighbors {
-                        if !self.is_adjacent(x, z)
-                            && !self.check_new_unshielded_collider(y, z)?
-                            && !self.has_directed_path(z, y)?
-                        {
-                            // Ensure x -> y exists
-                            if self.has_directed_edge(x, y) {
-                                if self.orient_undirected_edge(y, z, true).is_ok() {
-                                    changed = true;
-                                    break;
-                                }
+                        if !self.is_adjacent(x, z) && !self.check_new_unshielded_collider(y, z)? {
+                            if self.orient_undirected_edge(y, z, true).is_ok() {
+                                changed = true;
+                                break;
                             }
                         }
                     }
@@ -381,8 +375,9 @@ impl RustPDAG {
                 }
                 if changed { break; }
             }
+            if changed { continue; }
 
-            // Rule 2: If X -> Z and Z -> Y  and X - Y =>  X -> Y
+            // Rule 2: If X -> Z -> Y  and X - Y =>  X -> Y
             for z in &nodes {
                 if !self.node_map.contains_key(z) {
                     continue;
@@ -409,13 +404,13 @@ impl RustPDAG {
                 }
                 if changed { break; }
             }
+            if changed { continue; }
 
             // Rule 3: If X - Y, X - Z, X - W and Y -> W, Z -> W => X -> W
             for x in &nodes {
                 if !self.node_map.contains_key(x) {
                     continue;
                 }
-                // Convert HashSet to sorted vector for deterministic iteration
                 let mut undirected_nbs: Vec<String> = self.undirected_neighbors(x)?.into_iter().collect();
                 undirected_nbs.sort();
 
@@ -425,10 +420,20 @@ impl RustPDAG {
 
                 for i in 0..undirected_nbs.len() {
                     for j in (i + 1)..undirected_nbs.len() {
-                        for k in (j + 1)..undirected_nbs.len() {
-                            let (y, z, w) = (&undirected_nbs[i], &undirected_nbs[j], &undirected_nbs[k]);
+                        let y = &undirected_nbs[i];
+                        let z = &undirected_nbs[j];
 
-                            if self.has_directed_edge(y, w) && self.has_directed_edge(z, w) {
+                        if self.is_adjacent(y, z) {
+                            continue;
+                        }
+
+                        let y_children = self.directed_children(y)?;
+                        let z_children = self.directed_children(z)?;
+
+                        let common_children: HashSet<_> = y_children.intersection(&z_children).collect();
+
+                        for w in common_children {
+                            if self.has_undirected_edge(x, w) {
                                 if self.orient_undirected_edge(x, w, true).is_ok() {
                                     changed = true;
                                     break;
@@ -441,6 +446,7 @@ impl RustPDAG {
                 }
                 if changed { break; }
             }
+            if changed { continue; }
 
             // Rule 4
             if apply_r4 {
@@ -460,19 +466,20 @@ impl RustPDAG {
                                 continue;
                             }
 
-                            let mut b_undirected: Vec<String> = self.undirected_neighbors(b)?.into_iter().collect();
-                            b_undirected.sort();
-                            let mut c_neighbors: Vec<String> = self.all_neighbors(c)?.into_iter().collect();
-                            c_neighbors.sort();
-                            let mut d_undirected: Vec<String> = self.undirected_neighbors(d)?.into_iter().collect();
-                            d_undirected.sort();
+                            let b_undirected_set = self.undirected_neighbors(b)?;
+                            let c_neighbors_set = self.all_neighbors(c)?;
+                            let d_undirected_set = self.undirected_neighbors(d)?;
 
-                            for a in &b_undirected {
-                                if c_neighbors.contains(a) && d_undirected.contains(a) {
-                                    if self.orient_undirected_edge(a, b, true).is_ok() {
-                                        changed = true;
-                                        break;
-                                    }
+                            let candidates: HashSet<_> = b_undirected_set.intersection(&c_neighbors_set).cloned().collect();
+                            let final_candidates: HashSet<_> = candidates.intersection(&d_undirected_set).cloned().collect();
+                            
+                            let mut sorted_candidates: Vec<String> = final_candidates.into_iter().collect();
+                            sorted_candidates.sort();
+
+                            for a in sorted_candidates {
+                                if self.orient_undirected_edge(&a, b, true).is_ok() {
+                                    changed = true;
+                                    break;
                                 }
                             }
                             if changed { break; }
