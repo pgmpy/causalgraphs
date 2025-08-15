@@ -287,6 +287,13 @@ impl PyRustDAG {
             .minimal_dseparator(&start, &end, include_latents)
             .map_err(PyValueError::new_err)
     }
+
+    #[getter]
+    fn latents(&self) -> Vec<String> {
+        let mut result: Vec<String> = self.inner.latents.iter().cloned().collect();
+        result.sort();
+        result
+    }
 }
 
 // Existing PyIndependenceAssertion and PyIndependencies (unchanged, included for completeness)
