@@ -323,8 +323,6 @@ impl RustPDAG {
             .ok_or_else(|| format!("Node {} not found", target))?;
 
         
-        println!("Directed graph edges: {:?}", directed_graph.edges());
-        println!("Source index: {:?}, Target index: {:?}", source_idx, target_idx);
         let mut dfs = Dfs::new(&directed_graph.graph, *source_idx);
         
         while let Some(nx) = dfs.next(&directed_graph.graph) {
@@ -368,7 +366,6 @@ impl RustPDAG {
                 directed_parents.sort();
                 let mut undirected_neighbors: Vec<String> = self.undirected_neighbors(y)?.into_iter().collect();
                 undirected_neighbors.sort();
-                println!("Rule 1: Y={}, Parents={:?}, Undirected Neighbors={:?}", y, directed_parents, undirected_neighbors);
 
                 for x in &directed_parents {
                     for z in &undirected_neighbors {
@@ -376,7 +373,6 @@ impl RustPDAG {
                         let collider = self.check_new_unshielded_collider(y, z)?;
                         let path = self.has_directed_path(z, y)?;
                         if !adj && !collider && !path {
-                            println!("Orienting {} -> {} for Rule 1", y, z);
                             if self.orient_undirected_edge(y, z, true).is_ok() {
                                 changed = true;
                                 break;
@@ -407,7 +403,6 @@ impl RustPDAG {
                             let x_to_z = self.has_directed_edge(x, z);
                             let z_to_y = self.has_directed_edge(z, y);
                             if x_to_z && z_to_y {
-                                println!("Orienting {} -> {} for Rule 2", x, y);
                                 if self.orient_undirected_edge(x, y, true).is_ok() {
                                     changed = true;
                                     break;
