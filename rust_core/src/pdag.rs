@@ -553,7 +553,7 @@ impl RustPDAG {
                     let mut all_predecessors: Vec<String> = pdag_copy.all_neighbors(x)?.into_iter().collect();
                     all_predecessors.sort();
                     for y in &all_predecessors {
-                        if pdag_copy.is_adjacent(y, x) && !dag.has_edge(x, y) {
+                        if pdag_copy.is_adjacent(y, x) && !dag.has_edge(y, x) {
                             dag.add_edge(y.clone(), x.clone(), None)?;
                         }
                     }
