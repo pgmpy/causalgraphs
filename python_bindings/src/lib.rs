@@ -1,7 +1,165 @@
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
-use rust_core::{IndependenceAssertion, Independencies, RustDAG};
-use std::collections::HashSet;
+use rust_core::{IndependenceAssertion, Independencies, RustDAG, RustPDAG};
+use std::collections::{HashMap, HashSet};
+
+#[pyclass(name = "PDAG")]
+#[derive(Clone)]
+pub struct PyRustPDAG {
+    inner: RustPDAG,
+}
+
+#[pymethods]
+impl PyRustPDAG {
+    #[new]
+    pub fn new() -> Self {
+        PyRustPDAG {
+            inner: RustPDAG::new(),
+        }
+    }
+
+    /// Add a single node to the PDAG.
+    pub fn add_node(&mut self, node: String, latent: Option<bool>) -> PyResult<()> {
+        self.inner
+            .add_node(node, latent.unwrap_or(false))
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Add multiple nodes to the PDAG.
+    pub fn add_nodes_from(&mut self, nodes: Vec<String>, latent: Option<Vec<bool>>) -> PyResult<()> {
+        self.inner
+            .add_nodes_from(nodes, latent)
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Add a single edge (directed or undirected) to the PDAG.
+    #[pyo3(signature = (u, v, weight = None, directed = true))]
+    pub fn add_edge(&mut self, u: String, v: String, weight: Option<f64>, directed: bool) -> PyResult<()> {
+        self.inner
+            .add_edge(u, v, weight, directed)
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Add multiple edges (directed or undirected) to the PDAG.
+    #[pyo3(signature = (ebunch, weights = None, directed = true))]
+    pub fn add_edges_from(
+        &mut self,
+        ebunch: Vec<(String, String)>,
+        weights: Option<Vec<f64>>,
+        directed: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .add_edges_from(Some(ebunch), weights, directed)
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Get all neighbors (via directed or undirected edges) of a node.
+    pub fn all_neighbors(&self, node: String) -> PyResult<Vec<String>> {
+        let neighbors = self.inner
+            .all_neighbors(&node)
+            .map_err(PyKeyError::new_err)?;
+        let mut result: Vec<String> = neighbors.into_iter().collect();
+        result.sort(); // Ensure deterministic order
+        Ok(result)
+    }
+
+    /// Get children of a node via directed edges.
+    pub fn directed_children(&self, node: String) -> PyResult<Vec<String>> {
+        let children = self.inner
+            .directed_children(&node)
+            .map_err(PyKeyError::new_err)?;
+        let mut result: Vec<String> = children.into_iter().collect();
+        result.sort();
+        Ok(result)
+    }
+
+    /// Get parents of a node via directed edges.
+    pub fn directed_parents(&self, node: String) -> PyResult<Vec<String>> {
+        let parents = self.inner
+            .directed_parents(&node)
+            .map_err(PyKeyError::new_err)?;
+        let mut result: Vec<String> = parents.into_iter().collect();
+        result.sort();
+        Ok(result)
+    }
+
+    /// Check if there is a directed edge u -> v.
+    pub fn has_directed_edge(&self, u: String, v: String) -> bool {
+        self.inner.has_directed_edge(&u, &v)
+    }
+
+    /// Check if there is an undirected edge u - v.
+    pub fn has_undirected_edge(&self, u: String, v: String) -> bool {
+        self.inner.has_undirected_edge(&u, &v)
+    }
+
+    /// Get neighbors connected via undirected edges.
+    pub fn undirected_neighbors(&self, node: String) -> PyResult<Vec<String>> {
+        let neighbors = self.inner
+            .undirected_neighbors(&node)
+            .map_err(PyKeyError::new_err)?;
+        let mut result: Vec<String> = neighbors.into_iter().collect();
+        result.sort();
+        Ok(result)
+    }
+
+    /// Check if two nodes are adjacent (via any edge).
+    pub fn is_adjacent(&self, u: String, v: String) -> bool {
+        self.inner.is_adjacent(&u, &v)
+    }
+
+    /// Get all nodes in the PDAG.
+    pub fn nodes(&self) -> Vec<String> {
+        self.inner.nodes()
+    }
+
+    /// Get all edges in the PDAG.
+    pub fn edges(&self) -> Vec<(String, String)> {
+        self.inner.edges()
+    }
+
+    /// Apply Meek's rules to orient undirected edges.
+    #[pyo3(signature = (apply_r4 = true, inplace = true))]
+    pub fn apply_meeks_rules(&mut self, apply_r4: bool, inplace: bool) -> PyResult<Option<PyRustPDAG>> {
+        self.inner
+            .apply_meeks_rules(apply_r4, inplace)
+            .map(|opt| opt.map(|pdag| PyRustPDAG { inner: pdag }))
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Convert the PDAG to a DAG.
+    pub fn to_dag(&self) -> PyResult<PyRustDAG> {
+        self.inner
+            .to_dag()
+            .map(|dag| PyRustDAG { inner: dag })
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Check if there is a directed path from source to target.
+    pub fn has_directed_path(&self, source: String, target: String) -> PyResult<bool> {
+        self.inner
+            .has_directed_path(&source, &target)
+            .map_err(PyKeyError::new_err)
+    }
+
+    /// Get the number of nodes in the PDAG.
+    pub fn node_count(&self) -> usize {
+        self.inner.node_map.len()
+    }
+
+    /// Get the number of edges in the PDAG (counting undirected edges once).
+    pub fn edge_count(&self) -> usize {
+        self.inner.directed_edges.len() + self.inner.undirected_edges.len()
+    }
+
+    /// Get the set of latent nodes.
+    #[getter]
+    pub fn latents(&self) -> Vec<String> {
+        let mut result: Vec<String> = self.inner.latents.iter().cloned().collect();
+        result.sort();
+        result
+    }
+}
 
 #[pyclass(name = "DAG")]
 #[derive(Clone)]
@@ -131,6 +289,7 @@ impl PyRustDAG {
     }
 }
 
+// Existing PyIndependenceAssertion and PyIndependencies (unchanged, included for completeness)
 #[pyclass(name = "IndependenceAssertion")]
 #[derive(Clone)]
 pub struct PyIndependenceAssertion {
@@ -155,7 +314,7 @@ impl PyIndependenceAssertion {
     #[getter]
     pub fn event1(&self) -> Vec<String> {
         let mut result: Vec<String> = self.inner.event1.iter().cloned().collect();
-        result.sort(); // Ensure deterministic order
+        result.sort();
         result
     }
 
@@ -292,6 +451,7 @@ impl PyIndependencies {
 #[pymodule]
 fn causalgraphs(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyRustDAG>()?;
+    m.add_class::<PyRustPDAG>()?;
     m.add_class::<PyIndependenceAssertion>()?;
     m.add_class::<PyIndependencies>()?;
     Ok(())
