@@ -334,3 +334,221 @@ fn test_to_dag_basic() {
     assert!(dag_edges.contains(&("C".to_string(), "D".to_string())) || dag_edges.contains(&("D".to_string(), "C".to_string())));
     assert!(dag_edges.contains(&("D".to_string(), "A".to_string())) || dag_edges.contains(&("A".to_string(), "D".to_string())));
 }
+
+#[test]
+fn test_pdag_to_dag() {
+    // PDAG no: 1 - Possibility of creating a v-structure
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(
+        Some(vec![
+            ("A".to_string(), "B".to_string()),
+            ("C".to_string(), "B".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(
+        Some(vec![
+            ("C".to_string(), "D".to_string()),
+            ("D".to_string(), "A".to_string()),
+        ]),
+        None,
+        false,
+    )
+    .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+
+    assert_eq!(dag_edges.len(), 4, "Expected 4 edges in DAG");
+    assert!(dag.has_edge("A", "B"), "Expected edge A -> B");
+    assert!(dag.has_edge("C", "B"), "Expected edge C -> B");
+    assert!(
+        !(dag.has_edge("A", "D") && dag.has_edge("C", "D")),
+        "Should not have both A -> D and C -> D (v-structure)"
+    );
+    assert!(
+        dag_edges.contains(&("C".to_string(), "D".to_string()))
+            || dag_edges.contains(&("D".to_string(), "C".to_string())),
+        "Expected either C -> D or D -> C"
+    );
+    assert!(
+        dag_edges.contains(&("D".to_string(), "A".to_string()))
+            || dag_edges.contains(&("A".to_string(), "D".to_string())),
+        "Expected either D -> A or A -> D"
+    );
+
+    // With latents
+    let mut pdag = RustPDAG::new();
+    pdag.add_nodes_from(
+        vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string()],
+        Some(vec![true, false, false, false]),
+    )
+    .unwrap();
+    pdag.add_edges_from(
+        Some(vec![
+            ("A".to_string(), "B".to_string()),
+            ("C".to_string(), "B".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(
+        Some(vec![
+            ("C".to_string(), "D".to_string()),
+            ("D".to_string(), "A".to_string()),
+        ]),
+        None,
+        false,
+    )
+    .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+    let dag_latents: HashSet<String> = dag.latents.clone().into_iter().collect();
+
+    assert_eq!(dag_edges.len(), 4, "Expected 4 edges in DAG with latents");
+    assert!(dag.has_edge("A", "B"), "Expected edge A -> B with latents");
+    assert!(dag.has_edge("C", "B"), "Expected edge C -> B with latents");
+    assert!(
+        !(dag.has_edge("A", "D") && dag.has_edge("C", "D")),
+        "Should not have both A -> D and C -> D with latents (v-structure)"
+    );
+    assert!(
+        dag_edges.contains(&("C".to_string(), "D".to_string()))
+            || dag_edges.contains(&("D".to_string(), "C".to_string())),
+        "Expected either C -> D or D -> C with latents"
+    );
+    assert!(
+        dag_edges.contains(&("D".to_string(), "A".to_string()))
+            || dag_edges.contains(&("A".to_string(), "D".to_string())),
+        "Expected either D -> A or A -> D with latents"
+    );
+    assert_eq!(
+        dag_latents,
+        HashSet::from_iter(vec!["A".to_string()]),
+        "Expected latent node A"
+    );
+
+    // PDAG no: 2 - No possibility of creating a v-structure
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(
+        Some(vec![
+            ("B".to_string(), "C".to_string()),
+            ("A".to_string(), "C".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "D".to_string())]), None, false)
+        .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+
+    assert!(dag.has_edge("B", "C"), "Expected edge B -> C");
+    assert!(dag.has_edge("A", "C"), "Expected edge A -> C");
+    assert!(
+        dag_edges.contains(&("A".to_string(), "D".to_string()))
+            || dag_edges.contains(&("D".to_string(), "A".to_string())),
+        "Expected either A -> D or D -> A"
+    );
+
+    // With latents
+    let mut pdag = RustPDAG::new();
+    pdag.add_nodes_from(
+        vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string()],
+        Some(vec![true, false, false, false]),
+    )
+    .unwrap();
+    pdag.add_edges_from(
+        Some(vec![
+            ("B".to_string(), "C".to_string()),
+            ("A".to_string(), "C".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "D".to_string())]), None, false)
+        .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+    let dag_latents: HashSet<String> = dag.latents.clone().into_iter().collect();
+
+    assert!(dag.has_edge("B", "C"), "Expected edge B -> C with latents");
+    assert!(dag.has_edge("A", "C"), "Expected edge A -> C with latents");
+    assert!(
+        dag_edges.contains(&("A".to_string(), "D".to_string()))
+            || dag_edges.contains(&("D".to_string(), "A".to_string())),
+        "Expected either A -> D or D -> A with latents"
+    );
+    assert_eq!(
+        dag_latents,
+        HashSet::from_iter(vec!["A".to_string()]),
+        "Expected latent node A"
+    );
+
+    // PDAG no: 3 - Already existing v-structure, possibility to add another
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(
+        Some(vec![
+            ("B".to_string(), "C".to_string()),
+            ("A".to_string(), "C".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(Some(vec![("C".to_string(), "D".to_string())]), None, false)
+        .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("B".to_string(), "C".to_string()),
+        ("C".to_string(), "D".to_string()),
+        ("A".to_string(), "C".to_string()),
+    ]
+    .into_iter()
+    .collect();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+
+    assert_eq!(dag_edges, expected_edges, "Expected edges for PDAG no: 3");
+
+    // With latents
+    let mut pdag: RustPDAG = RustPDAG::new();
+    pdag.add_nodes_from(
+        vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string()],
+        Some(vec![true, false, false, false]),
+    )
+    .unwrap();
+    pdag.add_edges_from(
+        Some(vec![
+            ("B".to_string(), "C".to_string()),
+            ("A".to_string(), "C".to_string()),
+        ]),
+        None,
+        true,
+    )
+    .unwrap();
+    pdag.add_edges_from(Some(vec![("C".to_string(), "D".to_string())]), None, false)
+        .unwrap();
+
+    let dag = pdag.to_dag().unwrap();
+    let dag_edges: HashSet<(String, String)> = dag.edges().into_iter().collect();
+    let dag_latents: HashSet<String> = dag.latents.into_iter().collect();
+
+    assert_eq!(
+        dag_edges, expected_edges,
+        "Expected edges for PDAG no: 3 with latents"
+    );
+    assert_eq!(
+        dag_latents,
+        HashSet::from_iter(vec!["A".to_string()]),
+        "Expected latent node A"
+    );
+}
