@@ -293,6 +293,25 @@ fn test_apply_meeks_rules_no_change() {
     assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
 }
 
+#[test]
+fn test_apply_meeks_rules_no_change_1() {
+    // Test case where no rules apply
+    let mut pdag = RustPDAG::new();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "B".to_string()), ("B".to_string(), "C".to_string()), ("D".to_string(), "C".to_string())]), None, true).unwrap();
+    pdag.add_edges_from(Some(vec![("A".to_string(), "C".to_string())]), None, false).unwrap();
+    
+    let cpdag = pdag.apply_meeks_rules(true, false).unwrap().unwrap();
+    let expected_edges: HashSet<(String, String)> = vec![
+        ("A".to_string(), "B".to_string()),
+        ("B".to_string(), "C".to_string()),
+        ("A".to_string(), "C".to_string()),
+        ("D".to_string(), "C".to_string()),
+    ].into_iter().collect();
+    
+    assert_eq!(cpdag.edges().into_iter().collect::<HashSet<_>>(), expected_edges);
+}
+
+
 
 #[test]
 fn test_apply_meeks_rules_no_change_2() {
