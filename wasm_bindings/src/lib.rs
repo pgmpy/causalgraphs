@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = RustDAG)]
-#[derive(Clone)]
 pub struct RustDAG {
     inner: rust_core::RustDAG,
 }
