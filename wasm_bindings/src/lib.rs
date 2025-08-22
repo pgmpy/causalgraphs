@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use wasm_bindgen::prelude::*;
 use rust_core::{IndependenceAssertion, Independencies};
 use js_sys::{Object, Array};
 
@@ -12,8 +13,8 @@ pub struct DAG {
 #[wasm_bindgen]
 impl DAG {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> RustDAG {
-        RustDAG {
+    pub fn new() -> DAG {
+        DAG {
             inner: rust_core::RustDAG::new(),
         }
     }
