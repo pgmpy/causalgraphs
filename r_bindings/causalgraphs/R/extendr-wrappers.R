@@ -42,5 +42,59 @@ RDAG$latents <- function() .Call(wrap__RDAG__latents, self)
 #' @export
 `[[.RDAG` <- `$.RDAG`
 
+PDAG <- new.env(parent = emptyenv())
+
+PDAG$new <- function() .Call(wrap__PDAG__new)
+
+PDAG$add_node <- function(node, latent) .Call(wrap__PDAG__add_node, self, node, latent)
+
+PDAG$add_nodes_from <- function(nodes, latent) .Call(wrap__PDAG__add_nodes_from, self, nodes, latent)
+
+PDAG$add_edge <- function(u, v, weight, directed) .Call(wrap__PDAG__add_edge, self, u, v, weight, directed)
+
+PDAG$add_edges_from <- function(ebunch, weights, directed) .Call(wrap__PDAG__add_edges_from, self, ebunch, weights, directed)
+
+PDAG$edges <- function() .Call(wrap__PDAG__edges, self)
+
+PDAG$nodes <- function() .Call(wrap__PDAG__nodes, self)
+
+PDAG$node_count <- function() .Call(wrap__PDAG__node_count, self)
+
+PDAG$edge_count <- function() .Call(wrap__PDAG__edge_count, self)
+
+PDAG$latents <- function() .Call(wrap__PDAG__latents, self)
+
+PDAG$directed_edges <- function() .Call(wrap__PDAG__directed_edges, self)
+
+PDAG$undirected_edges <- function() .Call(wrap__PDAG__undirected_edges, self)
+
+PDAG$all_neighbors <- function(node) .Call(wrap__PDAG__all_neighbors, self, node)
+
+PDAG$directed_children <- function(node) .Call(wrap__PDAG__directed_children, self, node)
+
+PDAG$directed_parents <- function(node) .Call(wrap__PDAG__directed_parents, self, node)
+
+PDAG$has_directed_edge <- function(u, v) .Call(wrap__PDAG__has_directed_edge, self, u, v)
+
+PDAG$has_undirected_edge <- function(u, v) .Call(wrap__PDAG__has_undirected_edge, self, u, v)
+
+PDAG$undirected_neighbors <- function(node) .Call(wrap__PDAG__undirected_neighbors, self, node)
+
+PDAG$is_adjacent <- function(u, v) .Call(wrap__PDAG__is_adjacent, self, u, v)
+
+PDAG$copy <- function() .Call(wrap__PDAG__copy, self)
+
+PDAG$orient_undirected_edge <- function(u, v, inplace) .Call(wrap__PDAG__orient_undirected_edge, self, u, v, inplace)
+
+PDAG$apply_meeks_rules <- function(apply_r4, inplace) .Call(wrap__PDAG__apply_meeks_rules, self, apply_r4, inplace)
+
+PDAG$to_dag <- function() .Call(wrap__PDAG__to_dag, self)
+
+#' @export
+`$.PDAG` <- function (self, name) { func <- PDAG[[name]]; environment(func) <- environment(); func }
+
+#' @export
+`[[.PDAG` <- `$.PDAG`
+
 
 # nolint end
