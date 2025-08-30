@@ -1,8 +1,10 @@
 // Re-export modules/structs from your core logic
 pub mod dag;
 pub mod independencies;
+pub mod identification;
 pub mod pdag; // Add PDAG.rs later if needed
 pub mod graph_role;
+pub mod graph;
 
 pub use dag::RustDAG;
 pub use pdag::RustPDAG;

@@ -1,8 +1,9 @@
 use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
-use crate::graph_role::GraphRoles;
+use crate::graph_role::{GraphError, GraphRoles};
 use std::hash::{Hash, Hasher};
+use crate::graph::Graph;
 
 /// Directed Acyclic Graph (DAG) with optional latent variables.
 ///
@@ -679,6 +680,21 @@ impl RustDAG {
     }
 }
 
+impl Graph for RustDAG {
+    fn nodes(&self) -> Vec<String> {
+        self.node_map.keys().cloned().collect()
+    }
+
+    fn parents(&self, node: &str) -> Result<Vec<String>, GraphError> {
+        self.get_parents(node)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+
+    fn ancestors(&self, nodes: Vec<String>) -> Result<HashSet<String>, GraphError> {
+        self.get_ancestors_of(nodes)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+}
 
 impl GraphRoles for RustDAG {
     fn has_node(&self, node: &str) -> bool {
@@ -693,3 +709,4 @@ impl GraphRoles for RustDAG {
         &mut self.roles
     }
 }
+
