@@ -36,11 +36,75 @@ RDAG$edge_count <- function() .Call(wrap__RDAG__edge_count, self)
 
 RDAG$latents <- function() .Call(wrap__RDAG__latents, self)
 
+RDAG$add_edges_from <- function(ebunch, weights) .Call(wrap__RDAG__add_edges_from, self, ebunch, weights)
+
+RDAG$active_trail_nodes <- function(variables, observed, include_latents) .Call(wrap__RDAG__active_trail_nodes, self, variables, observed, include_latents)
+
+RDAG$is_dconnected <- function(start, end, observed, include_latents) .Call(wrap__RDAG__is_dconnected, self, start, end, observed, include_latents)
+
+RDAG$are_neighbors <- function(start, end) .Call(wrap__RDAG__are_neighbors, self, start, end)
+
+RDAG$get_ancestral_graph <- function(nodes) .Call(wrap__RDAG__get_ancestral_graph, self, nodes)
+
+RDAG$minimal_dseparator <- function(start, end, include_latents) .Call(wrap__RDAG__minimal_dseparator, self, start, end, include_latents)
+
 #' @export
 `$.RDAG` <- function (self, name) { func <- RDAG[[name]]; environment(func) <- environment(); func }
 
 #' @export
 `[[.RDAG` <- `$.RDAG`
+
+RIndependenceAssertion <- new.env(parent = emptyenv())
+
+RIndependenceAssertion$new <- function(event1, event2, event3) .Call(wrap__RIndependenceAssertion__new, event1, event2, event3)
+
+RIndependenceAssertion$event1 <- function() .Call(wrap__RIndependenceAssertion__event1, self)
+
+RIndependenceAssertion$event2 <- function() .Call(wrap__RIndependenceAssertion__event2, self)
+
+RIndependenceAssertion$event3 <- function() .Call(wrap__RIndependenceAssertion__event3, self)
+
+RIndependenceAssertion$all_vars <- function() .Call(wrap__RIndependenceAssertion__all_vars, self)
+
+RIndependenceAssertion$is_unconditional <- function() .Call(wrap__RIndependenceAssertion__is_unconditional, self)
+
+RIndependenceAssertion$to_latex <- function() .Call(wrap__RIndependenceAssertion__to_latex, self)
+
+RIndependenceAssertion$to_string <- function() .Call(wrap__RIndependenceAssertion__to_string, self)
+
+#' @export
+`$.RIndependenceAssertion` <- function (self, name) { func <- RIndependenceAssertion[[name]]; environment(func) <- environment(); func }
+
+#' @export
+`[[.RIndependenceAssertion` <- `$.RIndependenceAssertion`
+
+RIndependencies <- new.env(parent = emptyenv())
+
+RIndependencies$new <- function() .Call(wrap__RIndependencies__new)
+
+RIndependencies$add_assertion <- function(assertion) invisible(.Call(wrap__RIndependencies__add_assertion, self, assertion))
+
+RIndependencies$add_assertions_from_tuples <- function(tuples) .Call(wrap__RIndependencies__add_assertions_from_tuples, self, tuples)
+
+RIndependencies$get_assertions <- function() .Call(wrap__RIndependencies__get_assertions, self)
+
+RIndependencies$get_all_variables <- function() .Call(wrap__RIndependencies__get_all_variables, self)
+
+RIndependencies$contains <- function(assertion) .Call(wrap__RIndependencies__contains, self, assertion)
+
+RIndependencies$closure <- function() .Call(wrap__RIndependencies__closure, self)
+
+RIndependencies$reduce <- function(inplace) .Call(wrap__RIndependencies__reduce, self, inplace)
+
+RIndependencies$entails <- function(other) .Call(wrap__RIndependencies__entails, self, other)
+
+RIndependencies$is_equivalent <- function(other) .Call(wrap__RIndependencies__is_equivalent, self, other)
+
+#' @export
+`$.RIndependencies` <- function (self, name) { func <- RIndependencies[[name]]; environment(func) <- environment(); func }
+
+#' @export
+`[[.RIndependencies` <- `$.RIndependencies`
 
 PDAG <- new.env(parent = emptyenv())
 

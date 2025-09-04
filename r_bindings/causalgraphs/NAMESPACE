@@ -2,6 +2,10 @@
 
 S3method("$",PDAG)
 S3method("$",RDAG)
+S3method("$",RIndependenceAssertion)
+S3method("$",RIndependencies)
 S3method("[[",PDAG)
 S3method("[[",RDAG)
+S3method("[[",RIndependenceAssertion)
+S3method("[[",RIndependencies)
 useDynLib(causalgraphs, .registration = TRUE)

@@ -71,7 +71,7 @@ describe('cg.PDAG', () => {
         pdag.addEdge('B', 'C', null, false);
 
         const dag = pdag.toDag();
-        expect(dag.constructor.name).toBe('RustDAG');
+        expect(dag.constructor.name).toBe('DAG');
         
         const dagEdges = new Set(dag.edges().map(e => e.join(',')));
         // to_dag is consistent, so B-C will be oriented B->C in this case

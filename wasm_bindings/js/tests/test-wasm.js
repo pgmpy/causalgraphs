@@ -16,9 +16,9 @@ const latentsList = (dag) => {
   return [];
 };
 
-describe("RustDAG wasm (CJS)", () => {
+describe("DAG wasm (CJS)", () => {
   it("should add nodes & edges (basic)", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNode("U");
     dag.addNode("V");
     dag.addEdge("U", "V");
@@ -29,7 +29,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("addNode with optional latent flag; latents getter", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNode("A");
     dag.addNode("L", true);
     expect(sortStrings(dag.nodes())).toEqual(["A", "L"]);
@@ -40,7 +40,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("addNodesFrom with optional latent mask (Uint8Array)", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["X", "Y", "Z"], [true, false, true]);
     expect(sortStrings(dag.nodes())).toEqual(["X", "Y", "Z"]);
 
@@ -49,7 +49,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("getParents and getChildren", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["A", "B", "C", "D"]);
     dag.addEdge("A", "B");
     dag.addEdge("A", "C");
@@ -61,7 +61,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("getAncestorsOf for a single target", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["A", "B", "C", "D"]);
     dag.addEdge("A", "B");
     dag.addEdge("A", "C");
@@ -73,7 +73,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("getAncestorsOf for multiple targets", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["A", "B", "C", "D", "E"]);
     dag.addEdge("A", "B");
     dag.addEdge("B", "C");
@@ -85,7 +85,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("edges reflects added edges (order-insensitive)", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["A", "B", "C"]);
     dag.addEdge("A", "B");
     dag.addEdge("B", "C");
@@ -102,7 +102,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("addEdge can take an optional weight (graph relations still correct)", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     dag.addNodesFrom(["S", "T"]);
     dag.addEdge("S", "T", 0.75);
 
@@ -111,7 +111,7 @@ describe("RustDAG wasm (CJS)", () => {
   });
 
   it("nodeCount / edgeCount track mutations", () => {
-    const dag = new cg.RustDAG();
+    const dag = new cg.DAG();
     expect(dag.nodeCount).toBe(0);
     expect(dag.edgeCount).toBe(0);
 
