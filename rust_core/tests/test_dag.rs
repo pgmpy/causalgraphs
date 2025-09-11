@@ -127,7 +127,7 @@ fn test_minimal_dseparator_simple() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
@@ -146,7 +146,7 @@ fn test_minimal_dseparator_complex() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "D", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["D".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["C".to_string(), "E".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
@@ -166,7 +166,7 @@ fn test_minimal_dseparator_latent_case_1() {
     )
     .unwrap();
     // No d-separator should exist because B is latent
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     assert_eq!(result, None);
 }
 
@@ -187,7 +187,7 @@ fn test_minimal_dseparator_latent_case_2() {
     )
     .unwrap();
 
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["D".to_string()].into_iter().collect();
     assert_eq!(
         result,
@@ -213,7 +213,7 @@ fn test_minimal_dseparator_latent_case_3() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     assert_eq!(result, None, "Expected no d-separator when D is latent with multiple paths A→B→C and A→D→C (D is unobservable, because of its latent status)");
 }
 
@@ -238,7 +238,7 @@ fn test_minimal_dseparator_latent_case_5() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string(), "D".to_string()].into_iter().collect();
     assert_eq!(
         result,
@@ -253,7 +253,7 @@ fn test_minimal_dseparator_adjacent_error() {
     dag.add_edges_from(vec![("A".to_string(), "B".to_string())], None)
         .unwrap();
 
-    let result = dag.minimal_dseparator("A", "B", false);
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["B".to_string()], false);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("adjacent"));
 }
