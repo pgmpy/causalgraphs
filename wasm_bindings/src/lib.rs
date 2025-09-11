@@ -98,8 +98,8 @@ impl DAG {
 
     // In RustDAG impl
     #[wasm_bindgen(js_name = minimalDseparator, catch)]
-    pub fn minimal_dseparator(&self, start: String, end: String, include_latents: Option<bool>) -> Result<JsValue, JsValue> {
-        let result = self.inner.minimal_dseparator(&start, &end, include_latents.unwrap_or(false))
+    pub fn minimal_dseparator(&self, starts: Vec<String>, ends: Vec<String>, include_latents: Option<bool>) -> Result<JsValue, JsValue> {
+        let result = self.inner.minimal_dseparator(starts, ends, include_latents.unwrap_or(false))
             .map_err(|e| JsValue::from_str(&e))?;
         
         match result {

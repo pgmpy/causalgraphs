@@ -43,11 +43,11 @@ describe("DAG wasm (CJS)", () => {
     expect(areNeighbors).toBe(false);
   });
 
-  it("should compute minimal d-separator (simple)", () => {
+    it("should compute minimal d-separator (simple)", () => {
     const dag = new cg.DAG();
     dag.addEdge("A", "B");
     dag.addEdge("B", "C");
-    const sep = dag.minimalDseparator("A", "C");
+    const sep = dag.minimalDseparator(["A"], ["C"]);
     expect(sep.sort()).toEqual(["B"]);
   });
 
@@ -58,7 +58,7 @@ describe("DAG wasm (CJS)", () => {
     dag.addEdge("C", "D");
     dag.addEdge("A", "E");
     dag.addEdge("E", "D");
-    const sep = dag.minimalDseparator("A", "D");
+    const sep = dag.minimalDseparator(["A"], ["D"]);
     expect(sep.sort()).toEqual(["C", "E"]);
   });
 
@@ -69,7 +69,7 @@ describe("DAG wasm (CJS)", () => {
     dag.addNode("C", false);
     dag.addEdge("A", "B");
     dag.addEdge("B", "C");
-    const sep = dag.minimalDseparator("A", "C");
+    const sep = dag.minimalDseparator(["A"], ["C"]);
     expect(sep).toBeNull();
   });
 
