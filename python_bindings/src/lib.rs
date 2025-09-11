@@ -306,15 +306,15 @@ impl PyRustDAG {
             .map_err(PyValueError::new_err)
     }
 
-    #[pyo3(signature = (start, end, include_latents=false))]
+    #[pyo3(signature = (starts, ends, include_latents=false))]
     pub fn minimal_dseparator(
         &self,
-        start: String,
-        end: String,
+        starts: Vec<String>,
+        ends: Vec<String>,
         include_latents: bool,
     ) -> PyResult<Option<std::collections::HashSet<String>>> {
         self.inner
-            .minimal_dseparator(&start, &end, include_latents)
+            .minimal_dseparator(starts.clone(), ends.clone(), include_latents)
             .map_err(PyValueError::new_err)
     }
 
