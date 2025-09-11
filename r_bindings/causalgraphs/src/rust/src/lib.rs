@@ -213,8 +213,10 @@ impl RDAG {
     /// @param end Ending node
     /// @param include_latents Whether to include latents (default: FALSE)
     /// @export
-    fn minimal_dseparator(&self, start: String, end: String, include_latents: Option<bool>) -> extendr_api::Result<Nullable<Strings>> {
-        let result = self.inner.minimal_dseparator(&start, &end, include_latents.unwrap_or(false))
+    fn minimal_dseparator(&self, starts: Strings, ends: Strings, include_latents: Option<bool>) -> extendr_api::Result<Nullable<Strings>> {
+        let starts_vec: Vec<String> = starts.iter().map(|s| s.to_string()).collect();
+        let ends_vec: Vec<String> = ends.iter().map(|s| s.to_string()).collect();
+        let result = self.inner.minimal_dseparator(starts_vec.clone(), ends_vec.clone(), include_latents.unwrap_or(false))
             .map_err(|e| Error::Other(e.to_string()))?;
         match result {
             Some(set) => {
