@@ -1,6 +1,9 @@
 use petgraph::Direction;
 use rustworkx_core::petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
+use crate::graph_role::{GraphError, GraphRoles};
+use std::hash::{Hash, Hasher};
+use crate::graph::Graph;
 
 /// Directed Acyclic Graph (DAG) with optional latent variables.
 ///
@@ -24,6 +27,89 @@ pub struct RustDAG {
     pub node_map: HashMap<String, NodeIndex>,
     pub reverse_node_map: HashMap<NodeIndex, String>,
     pub latents: HashSet<String>,
+    pub roles: HashMap<String, HashSet<String>>,  // New: role -> set of nodes
+}
+
+impl PartialEq for RustDAG {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare nodes
+        let self_nodes: HashSet<&String> = self.node_map.keys().collect();
+        let other_nodes: HashSet<&String> = other.node_map.keys().collect();
+        if self_nodes != other_nodes {
+            return false;
+        }
+
+        // Compare edges
+        let self_edges: HashSet<(String, String)> = self.edges().into_iter().collect();
+        let other_edges: HashSet<(String, String)> = other.edges().into_iter().collect();
+        if self_edges != other_edges {
+            return false;
+        }
+
+        // Compare latents
+        if self.latents != other.latents {
+            return false;
+        }
+
+        // Compare roles
+        let mut self_roles: Vec<(String, Vec<String>)> = self
+            .get_roles()
+            .into_iter()
+            .map(|role| {
+                let mut nodes = self.get_role(&role);
+                nodes.sort();
+                (role, nodes)
+            })
+            .collect();
+        self_roles.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let mut other_roles: Vec<(String, Vec<String>)> = other
+            .get_roles()
+            .into_iter()
+            .map(|role| {
+                let mut nodes = other.get_role(&role);
+                nodes.sort();
+                (role, nodes)
+            })
+            .collect();
+        other_roles.sort_by(|a, b| a.0.cmp(&b.0));
+
+        self_roles == other_roles
+    }
+}
+
+impl Eq for RustDAG {}
+
+impl Hash for RustDAG {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash nodes
+        let mut nodes: Vec<&String> = self.node_map.keys().collect();
+        nodes.sort();
+        nodes.hash(state);
+
+        // Hash edges
+        let mut edges: Vec<(String, String)> = self.edges();
+        edges.sort();
+        edges.hash(state);
+
+        // Hash latents
+        let mut latents: Vec<&String> = self.latents.iter().collect();
+        latents.sort();
+        latents.hash(state);
+
+        // Hash roles
+        let mut roles: Vec<(String, Vec<String>)> = self
+            .get_roles()
+            .into_iter()
+            .map(|role| {
+                let mut nodes: Vec<String> = self.get_role(&role);
+                nodes.sort();
+                (role, nodes)
+            })
+            .collect();
+        roles.sort_by(|a, b| a.0.cmp(&b.0));
+        roles.hash(state);
+    }
 }
 
 impl RustDAG {  
@@ -37,6 +123,7 @@ impl RustDAG {
             node_map: HashMap::new(),
             reverse_node_map: HashMap::new(),
             latents: HashSet::new(),
+            roles: HashMap::new(),
         }
     }
 
@@ -110,7 +197,6 @@ impl RustDAG {
         self.graph.add_edge(u_idx, v_idx, weight.unwrap_or(1.0));
         Ok(())
     }
-
 
     /// Add multiple directed edges.
     ///
@@ -593,3 +679,34 @@ impl RustDAG {
         self.graph.edge_count()
     }
 }
+
+impl Graph for RustDAG {
+    fn nodes(&self) -> Vec<String> {
+        self.node_map.keys().cloned().collect()
+    }
+
+    fn parents(&self, node: &str) -> Result<Vec<String>, GraphError> {
+        self.get_parents(node)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+
+    fn ancestors(&self, nodes: Vec<String>) -> Result<HashSet<String>, GraphError> {
+        self.get_ancestors_of(nodes)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+}
+
+impl GraphRoles for RustDAG {
+    fn has_node(&self, node: &str) -> bool {
+        self.node_map.contains_key(node)
+    }
+
+    fn get_roles_map(&self) -> &HashMap<String, HashSet<String>> {
+        &self.roles
+    }
+
+    fn get_roles_map_mut(&mut self) -> &mut HashMap<String, HashSet<String>> {
+        &mut self.roles
+    }
+}
+
