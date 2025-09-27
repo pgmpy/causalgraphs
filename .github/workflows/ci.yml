@@ -75,6 +75,10 @@ jobs:
       run: |
         sudo apt-get install -y libcurl4-openssl-dev libssl-dev
         Rscript -e 'install.packages(c("devtools", "rextendr"), repos="https://cloud.r-project.org")'
+    
+    - name: Add Rust Windows target
+      if: runner.os == 'Windows'
+      run: rustup target add x86_64-pc-windows-gnu
 
     # Build all bindings (Rust, Python, WASM, R)
     - name: Build all components
