@@ -719,6 +719,96 @@ impl Graph for RustDAG {
         self.get_ancestors_of(nodes)
             .map_err(|e| GraphError::NodeNotFound(e))
     }
+
+    fn is_dconnected(
+        &self,
+        start: &str,
+        end: &str,
+        observed: Option<Vec<String>>,
+        include_latents: bool,
+    ) -> Result<bool, GraphError> {
+        self.is_dconnected(start, end, observed, include_latents)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+
+    fn minimal_dseparator(
+        &self,
+        start: Vec<String>,
+        end: Vec<String>,
+        include_latents: bool,
+    ) -> Result<Option<HashSet<String>>, GraphError> {
+        self.minimal_dseparator(start, end, include_latents)
+            .map_err(|e: String| GraphError::NodeNotFound(e))
+    }
+
+
+
+    fn all_simple_edge_paths(
+        &self,
+        source: &str,
+        target: &str,
+    ) -> Result<Vec<Vec<(String, String)>>, GraphError> {
+        let source_idx = self
+            .node_map
+            .get(source)
+            .ok_or_else(|| GraphError::NodeNotFound(source.to_string()))?;
+        let target_idx = self
+            .node_map
+            .get(target)
+            .ok_or_else(|| GraphError::NodeNotFound(target.to_string()))?;
+
+        let mut paths: Vec<Vec<(String, String)>> = Vec::new();
+        let mut current_path: Vec<(String, String)> = Vec::new();
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+
+        fn dfs(
+            graph: &RustDAG,
+            current: NodeIndex,
+            target: NodeIndex,
+            visited: &mut HashSet<NodeIndex>,
+            current_path: &mut Vec<(String, String)>,
+            paths: &mut Vec<Vec<(String, String)>>,
+        ) {
+            if current == target {
+                paths.push(current_path.clone());
+                return;
+            }
+
+            for neighbor in graph.graph.neighbors_directed(current, Direction::Outgoing) {
+                if !visited.contains(&neighbor) {
+                    let source_name = graph.reverse_node_map[&current].clone();
+                    let target_name = graph.reverse_node_map[&neighbor].clone();
+                    current_path.push((source_name, target_name));
+                    visited.insert(neighbor);
+                    dfs(graph, neighbor, target, visited, current_path, paths);
+                    visited.remove(&neighbor);
+                    current_path.pop();
+                }
+            }
+        }
+
+        visited.insert(*source_idx);
+        dfs(self, *source_idx, *target_idx, &mut visited, &mut current_path, &mut paths);
+        Ok(paths)
+    }
+
+    fn remove_edges_from(&self, edges: Vec<(String, String)>) -> Result<Self, GraphError> {
+        let mut new_graph = self.clone();
+        for (u, v) in edges {
+            let u_idx = new_graph
+                .node_map
+                .get(&u)
+                .ok_or_else(|| GraphError::NodeNotFound(u.clone()))?;
+            let v_idx = new_graph
+                .node_map
+                .get(&v)
+                .ok_or_else(|| GraphError::NodeNotFound(v.clone()))?;
+            if let Some(edge_idx) = new_graph.graph.find_edge(*u_idx, *v_idx) {
+                new_graph.graph.remove_edge(edge_idx);
+            }
+        }
+        Ok(new_graph)
+    }
 }
 
 impl GraphRoles for RustDAG {
