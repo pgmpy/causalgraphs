@@ -431,7 +431,7 @@ fn test_fork_convergence_pattern() {
 
     // No separator should exist because B→D and C→D are direct edges
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("adjacent"));
+    assert!(result.unwrap_err().contains("No possible separators because B and D are adjacent"));
 }
 
 #[test]
