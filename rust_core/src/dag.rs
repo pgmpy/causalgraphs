@@ -465,30 +465,44 @@ impl RustDAG {
     /// Tian, Paz, Pearl (1998), *Finding Minimal d-Separators*.
     pub fn minimal_dseparator(
         &self,
-        start: &str,
-        end: &str,
+        starts: Vec<String>,
+        ends: Vec<String>,
         include_latents: bool,
     ) -> Result<Option<HashSet<String>>, String> {
-        // Example: For DAG A→B←C, B→D, trying to separate A and C
-        // Adjacent nodes can't be separated by any conditioning set
-        if self.has_edge(start, end) || self.has_edge(end, start) {
-            return Err("No possible separators because start and end are adjacent".to_string());
+        // Validate inputs
+        if starts.is_empty() || ends.is_empty() {
+            return Ok(Some(HashSet::new()));
         }
 
-        // Create ancestral graph containing only ancestors of start and end
-        // Example: For separating A and D in A→B←C, B→D, ancestral graph = {A, B, C, D}
-        let ancestral_graph = self.get_ancestral_graph(vec![start.to_string(), end.to_string()])?;
+        // Check for adjacent pairs - if any start-end pair is adjacent, no separator exists
+        for start in &starts {
+            for end in &ends {
+                if self.has_edge(start, end) || self.has_edge(end, start) {
+                    return Err(format!(
+                        "No possible separators because {} and {} are adjacent",
+                        start, end
+                    ));
+                }
+            }
+        }
 
-        // Initial separator: all parents of both nodes (theoretical upper bound)
-        // Example: parents(A)={} ∪ parents(D)={B} → separator = {B}
-        let mut separator: HashSet<String> = self
-            .get_parents(start)?
-            .into_iter()
-            .chain(self.get_parents(end)?.into_iter())
-            .collect();
+        
+        // Create ancestral graph containing only ancestors of all starts and ends
+        let mut all_nodes = starts.clone();
+        all_nodes.extend(ends.clone());
+        let ancestral_graph = self.get_ancestral_graph(all_nodes)?;
+
+        // Initial separator: all parents of all start and end nodes
+        let mut separator: HashSet<String> = HashSet::new();
+        
+        for start in &starts {
+            separator.extend(self.get_parents(start)?);
+        }
+        for end in &ends {
+            separator.extend(self.get_parents(end)?);
+        }
 
         // Replace latent variables with their observable parents
-        // Example: If B were latent with parent L, replace B with L in separator
         if !include_latents {
             let mut changed = true;
             while changed {
@@ -507,21 +521,32 @@ impl RustDAG {
             }
         }
 
-        separator.remove(start);
-        separator.remove(end);
+        // Remove starts and ends from separator (can't separate a node from itself)
+        for start in &starts {
+            separator.remove(start);
+        }
+        for end in &ends {
+            separator.remove(end);
+        }
+
+        // Helper function to check if all start-end pairs are d-separated
+        let check_all_separated = |sep: &[String]| -> Result<bool, String> {
+            for start in &starts {
+                for end in &ends {
+                    if ancestral_graph.is_dconnected(start, end, Some(sep.to_vec()), include_latents)? {
+                        return Ok(false); // Found a connected pair
+                    }
+                }
+            }
+            Ok(true) // All pairs are separated
+        };
 
         // Sanity check: if our "guaranteed" separator doesn't work, no separator exists
-        if ancestral_graph.is_dconnected(
-            start,
-            end,
-            Some(separator.iter().cloned().collect()),
-            include_latents,
-        )? {
+        if !check_all_separated(&separator.iter().cloned().collect::<Vec<_>>())? {
             return Ok(None);
         }
 
         // Greedy minimization: remove each node if separation still holds without it
-        // Example: If separator = {B, C} but {B} alone separates A from D, remove C
         let mut minimal_separator = separator.clone();
         for u in separator {
             let test_separator: Vec<String> = minimal_separator
@@ -530,8 +555,8 @@ impl RustDAG {
                 .filter(|x| x != &u)
                 .collect();
 
-            // If still d-separated WITHOUT this node, we can remove it
-            if !ancestral_graph.is_dconnected(start, end, Some(test_separator), include_latents)? {
+            // If all pairs are still d-separated WITHOUT this node, we can remove it
+            if check_all_separated(&test_separator)? {
                 minimal_separator.remove(&u);
             }
         }
@@ -693,6 +718,96 @@ impl Graph for RustDAG {
     fn ancestors(&self, nodes: Vec<String>) -> Result<HashSet<String>, GraphError> {
         self.get_ancestors_of(nodes)
             .map_err(|e| GraphError::NodeNotFound(e))
+    }
+
+    fn is_dconnected(
+        &self,
+        start: &str,
+        end: &str,
+        observed: Option<Vec<String>>,
+        include_latents: bool,
+    ) -> Result<bool, GraphError> {
+        self.is_dconnected(start, end, observed, include_latents)
+            .map_err(|e| GraphError::NodeNotFound(e))
+    }
+
+    fn minimal_dseparator(
+        &self,
+        start: Vec<String>,
+        end: Vec<String>,
+        include_latents: bool,
+    ) -> Result<Option<HashSet<String>>, GraphError> {
+        self.minimal_dseparator(start, end, include_latents)
+            .map_err(|e: String| GraphError::NodeNotFound(e))
+    }
+
+
+
+    fn all_simple_edge_paths(
+        &self,
+        source: &str,
+        target: &str,
+    ) -> Result<Vec<Vec<(String, String)>>, GraphError> {
+        let source_idx = self
+            .node_map
+            .get(source)
+            .ok_or_else(|| GraphError::NodeNotFound(source.to_string()))?;
+        let target_idx = self
+            .node_map
+            .get(target)
+            .ok_or_else(|| GraphError::NodeNotFound(target.to_string()))?;
+
+        let mut paths: Vec<Vec<(String, String)>> = Vec::new();
+        let mut current_path: Vec<(String, String)> = Vec::new();
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+
+        fn dfs(
+            graph: &RustDAG,
+            current: NodeIndex,
+            target: NodeIndex,
+            visited: &mut HashSet<NodeIndex>,
+            current_path: &mut Vec<(String, String)>,
+            paths: &mut Vec<Vec<(String, String)>>,
+        ) {
+            if current == target {
+                paths.push(current_path.clone());
+                return;
+            }
+
+            for neighbor in graph.graph.neighbors_directed(current, Direction::Outgoing) {
+                if !visited.contains(&neighbor) {
+                    let source_name = graph.reverse_node_map[&current].clone();
+                    let target_name = graph.reverse_node_map[&neighbor].clone();
+                    current_path.push((source_name, target_name));
+                    visited.insert(neighbor);
+                    dfs(graph, neighbor, target, visited, current_path, paths);
+                    visited.remove(&neighbor);
+                    current_path.pop();
+                }
+            }
+        }
+
+        visited.insert(*source_idx);
+        dfs(self, *source_idx, *target_idx, &mut visited, &mut current_path, &mut paths);
+        Ok(paths)
+    }
+
+    fn remove_edges_from(&self, edges: Vec<(String, String)>) -> Result<Self, GraphError> {
+        let mut new_graph = self.clone();
+        for (u, v) in edges {
+            let u_idx = new_graph
+                .node_map
+                .get(&u)
+                .ok_or_else(|| GraphError::NodeNotFound(u.clone()))?;
+            let v_idx = new_graph
+                .node_map
+                .get(&v)
+                .ok_or_else(|| GraphError::NodeNotFound(v.clone()))?;
+            if let Some(edge_idx) = new_graph.graph.find_edge(*u_idx, *v_idx) {
+                new_graph.graph.remove_edge(edge_idx);
+            }
+        }
+        Ok(new_graph)
     }
 }
 

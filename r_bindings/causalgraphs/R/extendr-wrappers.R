@@ -46,7 +46,7 @@ RDAG$are_neighbors <- function(start, end) .Call(wrap__RDAG__are_neighbors, self
 
 RDAG$get_ancestral_graph <- function(nodes) .Call(wrap__RDAG__get_ancestral_graph, self, nodes)
 
-RDAG$minimal_dseparator <- function(start, end, include_latents) .Call(wrap__RDAG__minimal_dseparator, self, start, end, include_latents)
+RDAG$minimal_dseparator <- function(starts, ends, include_latents) .Call(wrap__RDAG__minimal_dseparator, self, starts, ends, include_latents)
 
 #' @export
 `$.RDAG` <- function (self, name) { func <- RDAG[[name]]; environment(func) <- environment(); func }

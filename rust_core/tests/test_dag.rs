@@ -128,7 +128,7 @@ fn test_minimal_dseparator_simple() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
@@ -147,7 +147,7 @@ fn test_minimal_dseparator_complex() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "D", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["D".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["C".to_string(), "E".to_string()].into_iter().collect();
     assert_eq!(result, Some(expected));
 }
@@ -167,7 +167,7 @@ fn test_minimal_dseparator_latent_case_1() {
     )
     .unwrap();
     // No d-separator should exist because B is latent
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     assert_eq!(result, None);
 }
 
@@ -188,7 +188,7 @@ fn test_minimal_dseparator_latent_case_2() {
     )
     .unwrap();
 
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["D".to_string()].into_iter().collect();
     assert_eq!(
         result,
@@ -214,14 +214,12 @@ fn test_minimal_dseparator_latent_case_3() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     assert_eq!(result, None, "Expected no d-separator when D is latent with multiple paths A→B→C and A→D→C (D is unobservable, because of its latent status)");
 }
 
 #[test]
 fn test_minimal_dseparator_latent_case_5() {
-    // dag_lat5 = DAG([("A", "B"), ("B", "C"), ("A", "D"), ("D", "E"), ("E", "C")], latents={"E"})
-    // self.assertEqual(dag_lat5.minimal_dseparator(start="A", end="C"), {"B", "D"})
     let mut dag = RustDAG::new();
     dag.add_node("A".to_string(), false).unwrap();
     dag.add_node("B".to_string(), false).unwrap();
@@ -239,12 +237,12 @@ fn test_minimal_dseparator_latent_case_5() {
         None,
     )
     .unwrap();
-    let result = dag.minimal_dseparator("A", "C", false).unwrap();
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["C".to_string()], false).unwrap();
     let expected: HashSet<String> = vec!["B".to_string(), "D".to_string()].into_iter().collect();
     assert_eq!(
         result,
         Some(expected),
-        "Expected [B, D] to d-separate A and C when E is latent(Observe B & parent of C => D)"
+        "Expected [B, D] to d-separate A and C when E is latent (Observe B & parent of C => D)"
     );
 }
 
@@ -254,9 +252,9 @@ fn test_minimal_dseparator_adjacent_error() {
     dag.add_edges_from(vec![("A".to_string(), "B".to_string())], None)
         .unwrap();
 
-    let result = dag.minimal_dseparator("A", "B", false);
+    let result = dag.minimal_dseparator(vec!["A".to_string()], vec!["B".to_string()], false);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("adjacent"));
+    assert!(result.unwrap_err().to_string().contains("adjacent"));
 }
 
 #[test]
@@ -281,65 +279,63 @@ fn test_role_hash_equality() {
 }
 
 // Helper function to calculate hash value as u64
-    fn calculate_hash<T: Hash>(t: &T) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        t.hash(&mut hasher);
-        hasher.finish()
-    }
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
+}
 
 #[test]
-    fn test_hash() {
-        // Create two identical M-bias DAGs: A -> B <- C, B -> D, E -> D
-        let mut dag1 = RustDAG::new();
-        dag1.add_edges_from(
-            vec![
-                ("A".to_string(), "B".to_string()),
-                ("C".to_string(), "B".to_string()),
-                ("B".to_string(), "D".to_string()),
-                ("E".to_string(), "D".to_string()),
-            ],
-            None,
-        )
-        .unwrap();
+fn test_hash() {
+    // Create two identical M-bias DAGs: A -> B <- C, B -> D, E -> D
+    let mut dag1 = RustDAG::new();
+    dag1.add_edges_from(
+        vec![
+            ("A".to_string(), "B".to_string()),
+            ("C".to_string(), "B".to_string()),
+            ("B".to_string(), "D".to_string()),
+            ("E".to_string(), "D".to_string()),
+        ],
+        None,
+    )
+    .unwrap();
 
-        let mut dag2 = RustDAG::new();
-        dag2.add_edges_from(
-            vec![
-                ("A".to_string(), "B".to_string()),
-                ("C".to_string(), "B".to_string()),
-                ("B".to_string(), "D".to_string()),
-                ("E".to_string(), "D".to_string()),
-            ],
-            None,
-        )
-        .unwrap();
+    let mut dag2 = RustDAG::new();
+    dag2.add_edges_from(
+        vec![
+            ("A".to_string(), "B".to_string()),
+            ("C".to_string(), "B".to_string()),
+            ("B".to_string(), "D".to_string()),
+            ("E".to_string(), "D".to_string()),
+        ],
+        None,
+    )
+    .unwrap();
 
-        // Test identical DAGs have same hash
-        assert_eq!(dag1, dag2);
-        assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
+    // Test identical DAGs have same hash
+    assert_eq!(dag1, dag2);
+    assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
 
-        // Add exposure role to dag1
-        dag1.with_role("exposure".to_string(), vec!["E".to_string()], true).unwrap();
-        assert_ne!(dag1, dag2);
-        assert_ne!(calculate_hash(&dag1), calculate_hash(&dag2));
+    // Add exposure role to dag1
+    dag1.with_role("exposure".to_string(), vec!["E".to_string()]).unwrap();
+    assert_ne!(dag1, dag2);
+    assert_ne!(calculate_hash(&dag1), calculate_hash(&dag2));
 
-        // Add exposure role to dag2
-        dag2.with_role("exposure".to_string(), vec!["E".to_string()], true).unwrap();
-        assert_eq!(dag1, dag2);
-        assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
+    // Add exposure role to dag2
+    dag2.with_role("exposure".to_string(), vec!["E".to_string()]).unwrap();
+    assert_eq!(dag1, dag2);
+    assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
 
-        // Add outcome role to dag1
-        dag1.with_role("outcome".to_string(), vec!["D".to_string()], true).unwrap();
-        assert_ne!(dag1, dag2);
-        assert_ne!(calculate_hash(&dag1), calculate_hash(&dag2));
+    // Add outcome role to dag1
+    dag1.with_role("outcome".to_string(), vec!["D".to_string()]).unwrap();
+    assert_ne!(dag1, dag2);
+    assert_ne!(calculate_hash(&dag1), calculate_hash(&dag2));
 
-        // Add outcome role to dag2
-        dag2.with_role("outcome".to_string(), vec!["D".to_string()], true).unwrap();
-        assert_eq!(dag1, dag2);
-        assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
-    }
-
-
+    // Add outcome role to dag2
+    dag2.with_role("outcome".to_string(), vec!["D".to_string()]).unwrap();
+    assert_eq!(dag1, dag2);
+    assert_eq!(calculate_hash(&dag1), calculate_hash(&dag2));
+}
 
 #[test]
 fn test_roles() {
@@ -357,19 +353,19 @@ fn test_roles() {
     .unwrap();
 
     // Test assigning role to existing node
-    let result = dag.with_role("exposure".to_string(), vec!["A".to_string()], true);
+    let result = dag.with_role("exposure".to_string(), vec!["A".to_string()]);
     assert!(result.is_ok());
     assert!(dag.has_role("exposure"));
     assert_eq!(dag.get_role("exposure"), vec!["A".to_string()]);
 
     // Test assigning role to non-existent node (should fail)
-    let result = dag.with_role("exposure".to_string(), vec!["Z".to_string()], true);
+    let result = dag.with_role("exposure".to_string(), vec!["Z".to_string()]);
     assert!(matches!(result, Err(GraphError::NodeNotFound(ref s)) if s == "Z"));
     // Verify exposure role still contains only "A"
     assert_eq!(dag.get_role("exposure"), vec!["A".to_string()]);
 
     // Test assigning outcome role
-    let result = dag.with_role("outcome".to_string(), vec!["D".to_string()], true);
+    let result = dag.with_role("outcome".to_string(), vec!["D".to_string()]);
     assert!(result.is_ok());
     assert!(dag.has_role("outcome"));
     assert_eq!(dag.get_role("outcome"), vec!["D".to_string()]);
@@ -378,7 +374,102 @@ fn test_roles() {
     assert!(dag.is_valid_causal_structure().is_ok());
 
     // Test removing role
-    dag.without_role("exposure", None, true);
+    dag.without_role("exposure", None);
     assert!(!dag.has_role("exposure"));
     assert!(dag.is_valid_causal_structure().is_err());
+}
+
+#[test]
+fn test_multiple_chains_separation() {
+    // Graph: A1→B1→C1, A2→B2→C2, A3→B3→C3 (three independent chains)
+    let mut dag = RustDAG::new();
+    dag.add_edges_from(
+        vec![
+            ("A1".to_string(), "B1".to_string()),
+            ("B1".to_string(), "C1".to_string()),
+            ("A2".to_string(), "B2".to_string()),
+            ("B2".to_string(), "C2".to_string()),
+            ("A3".to_string(), "B3".to_string()),
+            ("B3".to_string(), "C3".to_string()),
+        ],
+        None,
+    ).unwrap();
+    
+    // Separate {A1, A2, A3} from {C1, C2, C3}
+    let result = dag.minimal_dseparator(
+        vec!["A1".to_string(), "A2".to_string(), "A3".to_string()], 
+        vec!["C1".to_string(), "C2".to_string(), "C3".to_string()], 
+        false
+    ).unwrap();
+    
+    let expected: HashSet<String> = vec![
+        "B1".to_string(), "B2".to_string(), "B3".to_string()
+    ].into_iter().collect();
+    assert_eq!(result, Some(expected));
+}
+
+#[test]
+fn test_fork_convergence_pattern() {
+    // Graph: A→B, A→C, B→D, C→D (fork from A, convergence at D)
+    let mut dag = RustDAG::new();
+    dag.add_edges_from(
+        vec![
+            ("A".to_string(), "B".to_string()),
+            ("A".to_string(), "C".to_string()),
+            ("B".to_string(), "D".to_string()),
+            ("C".to_string(), "D".to_string()),
+        ],
+        None,
+    ).unwrap();
+    
+    // Separate {B, C} from {D} - should need both B and C
+    let result = dag.minimal_dseparator(
+        vec!["B".to_string(), "C".to_string()], 
+        vec!["D".to_string()], 
+        false
+    );
+
+    // No separator should exist because B→D and C→D are direct edges
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("adjacent"));
+}
+
+#[test]
+fn test_diamond_pattern_multiple() {
+    // Graph: Multiple diamond patterns
+    // A1→B1, A1→C1, B1→D1, C1→D1
+    // A2→B2, A2→C2, B2→D2, C2→D2
+    let mut dag = RustDAG::new();
+    dag.add_edges_from(
+        vec![
+            ("A1".to_string(), "B1".to_string()),
+            ("A1".to_string(), "C1".to_string()),
+            ("B1".to_string(), "D1".to_string()),
+            ("C1".to_string(), "D1".to_string()),
+            ("A2".to_string(), "B2".to_string()),
+            ("A2".to_string(), "C2".to_string()),
+            ("B2".to_string(), "D2".to_string()),
+            ("C2".to_string(), "D2".to_string()),
+        ],
+        None,
+    ).unwrap();
+    
+    // Separate {A1, A2} from {D1, D2}
+    let result = dag.minimal_dseparator(
+        vec!["A1".to_string(), "A2".to_string()], 
+        vec!["D1".to_string(), "D2".to_string()], 
+        false
+    ).unwrap();
+    
+    assert!(result.is_some());
+    let separator: HashSet<String> = result.unwrap();
+    
+    // Should include intermediate nodes from both diamonds
+    assert!(!separator.is_empty());
+    // Should contain some combination of B1, C1, B2, C2
+    let intermediate_nodes: HashSet<String> = vec![
+        "B1".to_string(), "C1".to_string(), "B2".to_string(), "C2".to_string()
+    ].into_iter().collect();
+    
+    assert_eq!(separator, intermediate_nodes);
 }
