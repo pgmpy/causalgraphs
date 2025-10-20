@@ -60,64 +60,46 @@ pub trait GraphRoles: Clone {
             .unwrap_or(false)
     }
 
-    /// Assign role to variables. Modifies in place if `inplace=true`, otherwise returns a new graph.
-    fn with_role(&mut self, role: String, variables: Vec<String>, inplace: bool) -> Result<Self, GraphError> {
-        if inplace {
-            // Modify self directly
-            for var in &variables {
-                if !self.has_node(var) {
-                    return Err(GraphError::NodeNotFound(var.clone()));
+    /// Assign role to variables in-place, modifying the graph.
+    fn with_role(&mut self, role: String, variables: Vec<String>) -> Result<(), GraphError> {
+        for var in &variables {
+            if !self.has_node(var) {
+                return Err(GraphError::NodeNotFound(var.clone()));
+            }
+        }
+        let roles_map = self.get_roles_map_mut();
+        let entry = roles_map.entry(role).or_insert(HashSet::new());
+        for var in variables {
+            entry.insert(var);
+        }
+        Ok(())
+    }
+
+    /// Assign role to variables, returning a new graph without modifying the original.
+    fn with_role_copy(&self, role: String, variables: Vec<String>) -> Result<Self, GraphError> {
+        let mut new_graph = self.clone();
+        new_graph.with_role(role, variables)?;
+        Ok(new_graph)
+    }
+
+    /// Remove role from variables (or all if None) in-place.
+    fn without_role(&mut self, role: &str, variables: Option<Vec<String>>) -> () {
+        if let Some(set) = self.get_roles_map_mut().get_mut(role) {
+            if let Some(vars) = variables {
+                for var in vars {
+                    set.remove(&var);
                 }
+            } else {
+                set.clear();
             }
-            let roles_map = self.get_roles_map_mut();
-            let entry = roles_map.entry(role).or_insert(HashSet::new());
-            for var in variables {
-                entry.insert(var);
-            }
-            Ok(self.clone()) // Return self.clone() for consistency, but self is modified
-        } else {
-            // Create and modify a new graph
-            let mut new_graph = self.clone();
-            for var in &variables {
-                if !new_graph.has_node(var) {
-                    return Err(GraphError::NodeNotFound(var.clone()));
-                }
-            }
-            let roles_map = new_graph.get_roles_map_mut();
-            let entry = roles_map.entry(role).or_insert(HashSet::new());
-            for var in variables {
-                entry.insert(var);
-            }
-            Ok(new_graph)
         }
     }
 
-    /// Remove role from variables (or all if None). Modifies in place if `inplace=true`, otherwise returns a new graph.
-    fn without_role(&mut self, role: &str, variables: Option<Vec<String>>, inplace: bool) -> Self {
-        if inplace {
-            if let Some(set) = self.get_roles_map_mut().get_mut(role) {
-                if let Some(vars) = variables {
-                    for var in vars {
-                        set.remove(&var);
-                    }
-                } else {
-                    set.clear();
-                }
-            }
-            self.clone() // Return self.clone() for consistency
-        } else {
-            let mut new_graph = self.clone();
-            if let Some(set) = new_graph.get_roles_map_mut().get_mut(role) {
-                if let Some(vars) = variables {
-                    for var in vars {
-                        set.remove(&var);
-                    }
-                } else {
-                    set.clear();
-                }
-            }
-            new_graph
-        }
+    /// Remove role from variables (or all if None), returning a new graph.
+    fn without_role_copy(&self, role: &str, variables: Option<Vec<String>>) -> Self {
+        let mut new_graph = self.clone();
+        new_graph.without_role(role, variables);
+        new_graph
     }
 
     /// Validate causal structure (has exposure and outcome).

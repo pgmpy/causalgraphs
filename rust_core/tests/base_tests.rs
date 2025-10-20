@@ -1,8 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use rust_core::{graph::Graph, graph_role::{GraphError, GraphRoles}, identification::base, RustDAG};
-
-use base::BaseIdentification;
-
+use rust_core::{graph::Graph, graph_role::{GraphError, GraphRoles}, identification::base::BaseIdentification, RustDAG};
 
 /// A simple identification method that assigns the "adjustment" role to either
 /// the first or last non-exposure, non-outcome node (alphabetically sorted),
@@ -11,6 +8,7 @@ use base::BaseIdentification;
 struct DummyIdentification {
     variant: Option<String>,
 }
+
 impl DummyIdentification {
     fn new(variant: Option<&str>) -> Self {
         DummyIdentification {
@@ -18,31 +16,31 @@ impl DummyIdentification {
         }
     }
 }
+
 impl BaseIdentification for DummyIdentification {
-    fn _identify<T:Graph + GraphRoles>(&self, causal_graph: &T) -> Result<(T, bool), GraphError> {
-        let mut mutable_graph = causal_graph.clone();
+    fn _identify<T: Graph + GraphRoles>(&self, causal_graph: &T) -> Result<(T, bool), GraphError> {
+        let non_role_nodes: HashSet<String> = causal_graph
+            .nodes()
+            .into_iter()
+            .collect::<HashSet<String>>()
+            .difference(
+                &causal_graph
+                    .get_role("exposure")
+                    .into_iter()
+                    .chain(causal_graph.get_role("outcome").into_iter())
+                    .collect::<HashSet<String>>(),
+            )
+            .cloned()
+            .collect();
+        let mut sorted_nodes: Vec<String> = non_role_nodes.into_iter().collect();
+        sorted_nodes.sort();
+
         match self.variant.as_deref() {
             Some("first") => {
-                let non_role_nodes: HashSet<String> = causal_graph
-                    .nodes()
-                    .into_iter()
-                    .collect::<HashSet<String>>()
-                    .difference(
-                        &causal_graph
-                            .get_role("exposure")
-                            .into_iter()
-                            .chain(causal_graph.get_role("outcome").into_iter())
-                            .collect::<HashSet<String>>(),
-                    )
-                    .cloned()
-                    .collect();
-                let mut sorted_nodes: Vec<String> = non_role_nodes.into_iter().collect();
-                sorted_nodes.sort();
                 if let Some(adjustment_node) = sorted_nodes.first() {
-                    let identified_cg = mutable_graph.with_role(
+                    let identified_cg = causal_graph.with_role_copy(
                         "adjustment".to_string(),
                         vec![adjustment_node.clone()],
-                        false,
                     )?;
                     Ok((identified_cg, true))
                 } else {
@@ -50,26 +48,10 @@ impl BaseIdentification for DummyIdentification {
                 }
             }
             Some("last") => {
-                let non_role_nodes: HashSet<String> = causal_graph
-                    .nodes()
-                    .into_iter()
-                    .collect::<HashSet<String>>()
-                    .difference(
-                        &causal_graph
-                            .get_role("exposure")
-                            .into_iter()
-                            .chain(causal_graph.get_role("outcome").into_iter())
-                            .collect::<HashSet<String>>(),
-                    )
-                    .cloned()
-                    .collect();
-                let mut sorted_nodes: Vec<String> = non_role_nodes.into_iter().collect();
-                sorted_nodes.sort();
                 if let Some(adjustment_node) = sorted_nodes.last() {
-                    let identified_cg = mutable_graph.with_role(
+                    let identified_cg = causal_graph.with_role_copy(
                         "adjustment".to_string(),
                         vec![adjustment_node.clone()],
-                        false,
                     )?;
                     Ok((identified_cg, true))
                 } else {
@@ -80,7 +62,6 @@ impl BaseIdentification for DummyIdentification {
         }
     }
 }
-
 
 #[test]
 fn test_base_identification_first() {
@@ -96,8 +77,8 @@ fn test_base_identification_first() {
     )
     .unwrap();
 
-    cg.with_role("exposure".to_string(), vec!["X".to_string()], true).unwrap();
-    cg.with_role("outcome".to_string(), vec!["Y".to_string()], true).unwrap();
+    cg.with_role("exposure".to_string(), vec!["X".to_string()]).unwrap();
+    cg.with_role("outcome".to_string(), vec!["Y".to_string()]).unwrap();
     let identifier = DummyIdentification::new(Some("first"));
     let (identified_cg, is_identified) = identifier.identify(&cg).unwrap();
     assert!(is_identified);
@@ -110,7 +91,6 @@ fn test_base_identification_first() {
     .collect();
     assert_eq!(identified_cg.get_role_dict(), expected_roles);
 }
-
 
 #[test]
 fn test_base_identification_last() {
@@ -125,8 +105,8 @@ fn test_base_identification_last() {
         None,
     )
     .unwrap();
-    cg.with_role("exposure".to_string(), vec!["X".to_string()], true).unwrap();
-    cg.with_role("outcome".to_string(), vec!["Y".to_string()], true).unwrap();
+    cg.with_role("exposure".to_string(), vec!["X".to_string()]).unwrap();
+    cg.with_role("outcome".to_string(), vec!["Y".to_string()]).unwrap();
     let identifier = DummyIdentification::new(Some("last"));
     let (identified_cg, is_identified) = identifier.identify(&cg).unwrap();
     assert!(is_identified);
@@ -153,8 +133,8 @@ fn test_base_identification_gibberish() {
         None,
     )
     .unwrap();
-    cg.with_role("exposure".to_string(), vec!["X".to_string()], true).unwrap();
-    cg.with_role("outcome".to_string(), vec!["Y".to_string()], true).unwrap();
+    cg.with_role("exposure".to_string(), vec!["X".to_string()]).unwrap();
+    cg.with_role("outcome".to_string(), vec!["Y".to_string()]).unwrap();
     let identifier = DummyIdentification::new(Some("gibberish"));
     let (identified_cg, is_identified) = identifier.identify(&cg).unwrap();
     assert!(!is_identified);
