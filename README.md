@@ -1,6 +1,6 @@
 # CausalGraphs
 
-A cross-language library for working with causal graphs (DAGs) in Rust, Python, and WebAssembly.
+A cross-language library for working with causal graphs (DAGs) in Rust, Python, and WebAssembly. This is still an experimental package.
 
 ## Structure
 
